@@ -10,38 +10,90 @@ from typing import Dict, List, Optional, Tuple, Any, Union
 from dataclasses import dataclass, field
 import logging
 from collections import defaultdict
-import gymnasium as gym
+try:
+    import gymnasium as gym
+except ImportError:
+    import gym  # Fallback to gym for habitat 0.3.3
 from enum import Enum
 
 import habitat
-from habitat import Config, Env, logger
-from habitat.core.agent import Agent
+from habitat import Config, Env
 from habitat.core.env import Env, RLEnv
 from habitat.tasks.nav.nav import NavigationTask, NavigationGoal
-from habitat.tasks.nav.object_nav_task import ObjectGoal
-from habitat.tasks.utils import cartesian_to_polar
-from habitat.config.default_structured_configs import (
-    HabitatConfigPlugin,
-    SimulatorConfig,
-    HabitatSimV0Config,
-)
+try:
+    from habitat.tasks.nav.object_nav_task import ObjectGoal
+except ImportError:
+    ObjectGoal = None
+try:
+    from habitat.tasks.utils import cartesian_to_polar
+except ImportError:
+    def cartesian_to_polar(x, y):
+        rho = np.sqrt(x**2 + y**2)
+        phi = np.arctan2(y, x)
+        return rho, phi
+
+# Try to import structured configs (habitat 0.3.x), fallback to legacy
+try:
+    from habitat.config.default_structured_configs import (
+        HabitatConfigPlugin,
+        SimulatorConfig,
+        HabitatSimV0Config,
+    )
+    HAS_STRUCTURED_CONFIGS = True
+except ImportError:
+    HAS_STRUCTURED_CONFIGS = False
+
 from habitat.utils.visualizations import maps
-from habitat.utils.geometry_utils import quaternion_to_list, quaternion_from_coeff
+
+# Geometry utils with fallback
+try:
+    from habitat.utils.geometry_utils import quaternion_to_list, quaternion_from_coeff
+except ImportError:
+    import quaternion as npq
+    def quaternion_to_list(q):
+        if hasattr(q, 'components'):
+            return q.components.tolist()
+        return [q.x, q.y, q.z, q.w]
+    def quaternion_from_coeff(coeffs):
+        return npq.quaternion(*coeffs)
 
 import torch
 import torch.nn.functional as F
 from omegaconf import DictConfig, OmegaConf
 import cv2
 
-# Habitat 0.3.3 specific imports
-from habitat.gym import make_gym_from_config
-from habitat.tasks.nav.instance_image_nav_task import InstanceImageGoal
-from habitat.tasks.nav.shortest_path_follower import ShortestPathFollower
-from habitat_baselines.common.obs_transformers import (
-    apply_obs_transforms_batch,
-    apply_obs_transforms_obs_space,
-    get_active_obs_transforms,
-)
+# Habitat 0.3.3 specific imports with fallbacks
+try:
+    from habitat.gym import make_gym_from_config
+except ImportError:
+    make_gym_from_config = None
+
+try:
+    from habitat.tasks.nav.instance_image_nav_task import InstanceImageGoal
+except ImportError:
+    InstanceImageGoal = None
+
+try:
+    from habitat.tasks.nav.shortest_path_follower import ShortestPathFollower
+except ImportError:
+    ShortestPathFollower = None
+
+try:
+    from habitat_baselines.common.obs_transformers import (
+        apply_obs_transforms_batch,
+        apply_obs_transforms_obs_space,
+        get_active_obs_transforms,
+    )
+    HAS_OBS_TRANSFORMS = True
+except ImportError:
+    HAS_OBS_TRANSFORMS = False
+    # Define fallback functions
+    def apply_obs_transforms_batch(obs, transforms):
+        return obs
+    def apply_obs_transforms_obs_space(space, transforms):
+        return space
+    def get_active_obs_transforms(config):
+        return []
 
 logger = logging.getLogger(__name__)
 
@@ -146,11 +198,18 @@ class HabitatEnvV3(RLEnv):
         super().__init__(habitat_config, dataset)
         
         # Advanced components
-        self.shortest_path_follower = ShortestPathFollower(
-            self._env.sim,
-            goal_radius=self.adv_config.success_distance,
-            return_one_hot=False
-        )
+        if ShortestPathFollower is not None:
+            try:
+                self.shortest_path_follower = ShortestPathFollower(
+                    self._env.sim,
+                    goal_radius=self.adv_config.success_distance,
+                    return_one_hot=False
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize ShortestPathFollower: {e}")
+                self.shortest_path_follower = None
+        else:
+            self.shortest_path_follower = None
         
         # Observation transformers for Habitat 0.3.3
         self.obs_transforms = get_active_obs_transforms(habitat_config)
@@ -594,14 +653,18 @@ class HabitatEnvV3(RLEnv):
             observations["goal_position"] = self._env.task.goal.position
             
         # Add shortest path information
-        try:
-            path = self.shortest_path_follower.get_path(
-                self._env.sim.get_agent_state().position,
-                self._env.task.goal.position
-            )
-            observations["shortest_path_length"] = len(path)
-            observations["shortest_path_next_action"] = self.shortest_path_follower.get_next_action()
-        except:
+        if self.shortest_path_follower is not None:
+            try:
+                path = self.shortest_path_follower.get_path(
+                    self._env.sim.get_agent_state().position,
+                    self._env.task.goal.position
+                )
+                observations["shortest_path_length"] = len(path)
+                observations["shortest_path_next_action"] = self.shortest_path_follower.get_next_action()
+            except:
+                observations["shortest_path_length"] = -1
+                observations["shortest_path_next_action"] = 0
+        else:
             observations["shortest_path_length"] = -1
             observations["shortest_path_next_action"] = 0
             
