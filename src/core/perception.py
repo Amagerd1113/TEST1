@@ -264,14 +264,14 @@ class DepthEncoder(nn.Module):
             nn.Conv2d(in_channels, 32, 7, stride=2, padding=3),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            
+
             # Residual blocks
             ResidualBlock(32, 64, stride=2),
             ResidualBlock(64, 128, stride=2),
             ResidualBlock(128, 256, stride=2),
             ResidualBlock(256, out_channels, stride=1),
         )
-        
+
         # Depth statistics extraction
         self.stats_extractor = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
@@ -280,6 +280,9 @@ class DepthEncoder(nn.Module):
             nn.ReLU(),
             nn.Linear(64, 3)  # min, max, mean depth
         )
+
+        # Stats injection layer (initialized once, not in forward)
+        self.stats_projection = nn.Conv2d(3, out_channels, 1)
         
     def forward(self, depth: torch.Tensor) -> torch.Tensor:
         """Encode depth map to features."""
@@ -292,13 +295,13 @@ class DepthEncoder(nn.Module):
         
         # Extract depth statistics
         stats = self.stats_extractor(features)
-        
+
         # Inject statistics back into features
         B, C, H, W = features.shape
         stats_expanded = stats.unsqueeze(-1).unsqueeze(-1).expand(B, 3, H, W)
-        stats_channels = nn.Conv2d(3, C, 1, device=features.device)(stats_expanded)
+        stats_channels = self.stats_projection(stats_expanded)
         features = features + 0.1 * stats_channels
-        
+
         return features
     
     def _normalize_depth(self, depth: torch.Tensor) -> torch.Tensor:
