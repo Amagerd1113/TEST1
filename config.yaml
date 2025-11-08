@@ -1,0 +1,253 @@
+# VLA-GR Framework Configuration
+# Vision-Language-Action with General Relativity Navigation
+
+defaults:
+  - _self_
+  - model: vla_gr
+  - training: base
+  - environment: habitat
+  - hardware: gpu
+
+project:
+  name: "VLA-GR"
+  version: "1.0.0"
+  description: "Vision-Language-Action with General Relativity Field Navigation"
+  seed: 42
+  debug: false
+  log_level: "INFO"
+
+model:
+  # Vision Encoder
+  vision:
+    backbone: "dinov2_vitb14"  # Options: resnet50, efficientnet, dinov2_vitb14
+    input_size: [224, 224]
+    depth_channels: 1
+    use_depth: true
+    pretrained: true
+    freeze_backbone: false
+    
+  # Language Encoder  
+  language:
+    model: "microsoft/phi-2"  # Lightweight LLM
+    max_tokens: 256
+    embed_dim: 768
+    vocab_size: 50304
+    use_cache: true
+    
+  # VLA Transformer
+  vla:
+    hidden_dim: 768
+    num_layers: 12
+    num_heads: 12
+    mlp_ratio: 4.0
+    dropout: 0.1
+    action_dim: 7  # 3D position + quaternion
+    
+  # GR Field Parameters
+  gr_field:
+    grid_size: [64, 64, 32]  # Spatial discretization
+    field_dim: 10  # Metric tensor components
+    c: 1.0  # Speed of light (normalized)
+    G: 1.0  # Gravitational constant (normalized)
+    lambda_curvature: 0.1  # Curvature regularization
+    max_mass: 10.0  # Maximum affordance mass
+    
+  # Affordance Quantification
+  affordance:
+    num_classes: 80  # COCO categories
+    sigma_min: 0.1  # Minimum Gaussian width
+    sigma_max: 2.0  # Maximum Gaussian width
+    confidence_threshold: 0.3
+    use_bayesian_update: true
+    
+  # Path Optimization
+  path:
+    horizon: 50  # Planning horizon
+    dt: 0.1  # Time step
+    max_velocity: 2.0  # m/s
+    max_acceleration: 5.0  # m/s^2
+    collision_radius: 0.25  # meters
+    geodesic_samples: 100
+    optimization_steps: 20
+    
+  # Occlusion Handling
+  occlusion:
+    completion_model: "unet"  # Options: unet, gated_conv
+    mask_ratio_train: 0.2  # Training occlusion ratio
+    mask_ratio_test: 0.2  # Test occlusion ratio
+    completion_threshold: 0.5
+    uncertainty_aware: true
+
+training:
+  # Optimization
+  optimizer: "adamw"
+  learning_rate: 5e-5
+  weight_decay: 0.01
+  scheduler: "cosine"
+  warmup_steps: 1000
+  max_steps: 100000
+  gradient_clip: 1.0
+  
+  # Batch Sizes
+  batch_size: 32
+  eval_batch_size: 64
+  gradient_accumulation: 4
+  
+  # Data
+  num_workers: 8
+  pin_memory: true
+  prefetch_factor: 2
+  
+  # Losses
+  losses:
+    action: 1.0
+    field: 0.5
+    affordance: 0.3
+    depth: 0.2
+    entropy: 0.01
+    
+  # Augmentation
+  augment:
+    random_crop: true
+    color_jitter: true
+    gaussian_noise: 0.01
+    depth_noise: 0.02
+    
+  # Checkpointing
+  save_every: 1000
+  eval_every: 500
+  checkpoint_dir: "checkpoints/"
+  resume: null
+  
+  # Mixed Precision
+  mixed_precision: true
+  fp16_scale_window: 200
+
+environment:
+  # Habitat Configuration
+  habitat:
+    scene_dataset: "hm3d"  # Options: hm3d, mp3d, gibson
+    split: "train"
+    max_episode_steps: 500
+    success_distance: 0.2
+    
+  # Sensors
+  sensors:
+    rgb:
+      width: 640
+      height: 480
+      fov: 79
+    depth:
+      width: 640
+      height: 480
+      min_depth: 0.0
+      max_depth: 10.0
+    semantic:
+      width: 640
+      height: 480
+      
+  # Task
+  task:
+    type: "objectnav"  # Options: pointnav, objectnav, vln
+    goals: ["chair", "table", "bed", "toilet", "tv"]
+    reward_success: 10.0
+    reward_collision: -0.1
+    reward_forward: 0.01
+    slack_reward: -0.001
+
+evaluation:
+  # Metrics
+  metrics:
+    - "success_rate"
+    - "spl"  # Success weighted by Path Length
+    - "collision_rate"
+    - "distance_to_goal"
+    - "trajectory_length"
+    - "field_accuracy"
+    - "affordance_precision"
+    
+  # Evaluation Settings
+  num_episodes: 1000
+  visualize: false
+  save_trajectories: true
+  save_videos: false
+  
+deployment:
+  # Model Export
+  export:
+    onnx: true
+    tensorrt: false
+    quantize: false
+    optimize_for_mobile: false
+    
+  # Serving
+  server:
+    host: "0.0.0.0"
+    port: 8080
+    workers: 4
+    max_batch_size: 8
+    timeout: 30
+    
+  # Robot Interface
+  robot:
+    type: "ros2"  # Options: ros2, direct, simulation
+    control_frequency: 10  # Hz
+    safety_checks: true
+    emergency_stop: true
+
+hardware:
+  # GPU Settings
+  device: "cuda"
+  num_gpus: 1
+  gpu_ids: [0]
+  
+  # Distributed Training
+  distributed:
+    enabled: false
+    backend: "nccl"
+    world_size: 1
+    
+  # Memory Management
+  memory:
+    gradient_checkpointing: true
+    empty_cache_every: 100
+    max_memory_gb: 24
+
+logging:
+  # Wandb
+  wandb:
+    enabled: true
+    project: "vla-gr-navigation"
+    entity: null
+    tags: ["vla", "gr", "navigation"]
+    
+  # Tensorboard
+  tensorboard:
+    enabled: true
+    log_dir: "logs/"
+    
+  # Console
+  console:
+    enabled: true
+    format: "[%(asctime)s] %(levelname)s - %(message)s"
+    
+  # File
+  file:
+    enabled: true
+    path: "logs/vla_gr.log"
+    max_size_mb: 100
+    backup_count: 5
+
+# Hydra Configuration
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    config:
+      override_dirname:
+        exclude_keys:
+          - project.name
+          - hydra.job.name
