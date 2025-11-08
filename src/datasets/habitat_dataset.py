@@ -140,19 +140,27 @@ class HabitatNavigationDataset(Dataset):
     def _generate_episodes(self, num_episodes: int) -> List[NavigationEpisode]:
         """Generate random navigation episodes."""
         episodes = []
-        
+
         for i in range(num_episodes):
-            # Random scene
-            scene_id = random.choice(self.simulator.semantic_scene.levels[0].id)
-            
+            # Get scene ID from the current loaded scene
+            # semantic_scene.levels[0].id is a string, not a list
+            try:
+                if hasattr(self.simulator, 'semantic_scene') and self.simulator.semantic_scene:
+                    scene_id = self.simulator.semantic_scene.levels[0].id
+                else:
+                    # Fallback to default scene ID
+                    scene_id = f"scene_{i % 10}"
+            except (AttributeError, IndexError):
+                scene_id = f"scene_{i % 10}"
+
             # Random start position
             start_position = self.simulator.sample_navigable_point()
             start_rotation = [0, random.uniform(0, 2 * np.pi), 0, 1]
-            
+
             # Random goal
             goal_position = self.simulator.sample_navigable_point()
             goal_radius = self.config['environment']['habitat']['success_distance']
-            
+
             # Create episode
             episode = NavigationEpisode(
                 episode_id=f"{self.split}_{i}",
@@ -161,9 +169,9 @@ class HabitatNavigationDataset(Dataset):
                 start_rotation=start_rotation,
                 goals=[NavigationGoal(position=goal_position, radius=goal_radius)]
             )
-            
+
             episodes.append(episode)
-            
+
         return episodes
     
     def _save_episodes(self, episodes: List[NavigationEpisode], file_path: Path):

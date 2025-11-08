@@ -125,6 +125,9 @@ class ConferenceVLAGRAgent(nn.Module):
         # Initialize metrics
         self.register_buffer('success_rate', torch.tensor(0.0))
         self.register_buffer('spl', torch.tensor(0.0))
+
+        # Path encoding layer (initialized once, not in forward)
+        self.path_encoder = nn.Linear(3, self.hidden_dim)
         
     def forward(
         self,
@@ -326,17 +329,16 @@ class ConferenceVLAGRAgent(nn.Module):
             
     def _encode_path(self, path: torch.Tensor) -> torch.Tensor:
         """Encode planned path as tokens."""
-        
+
         B, T, _ = path.shape
-        
+
         # Subsample path points
         indices = torch.linspace(0, T-1, 10, dtype=torch.long, device=path.device)
         subsampled = path[:, indices]  # [B, 10, 3]
-        
-        # Project to hidden dimension
-        path_encoder = nn.Linear(3, self.hidden_dim, device=path.device)
-        encoded = path_encoder(subsampled)  # [B, 10, D]
-        
+
+        # Project to hidden dimension using pre-initialized layer
+        encoded = self.path_encoder(subsampled)  # [B, 10, D]
+
         return encoded
     
     def _get_positional_encoding(
@@ -652,6 +654,9 @@ class DifferentiableGeodesicPlanner(nn.Module):
             nn.ReLU(),
             nn.Linear(self.hidden_dim // 2, 9)  # 3x3 covariance
         )
+
+        # Goal position decoder (initialized once, not in forward)
+        self.goal_decoder = nn.Linear(self.hidden_dim, 3)
         
     def forward(
         self,
@@ -713,21 +718,20 @@ class DifferentiableGeodesicPlanner(nn.Module):
         t: torch.Tensor
     ) -> torch.Tensor:
         """Initialize with straight line path."""
-        
+
         B = start.shape[0]
         T = len(t)
-        
-        # Decode goal position from embedding
-        goal_decoder = nn.Linear(goal_embed.shape[-1], 3, device=start.device)
-        goal_position = goal_decoder(goal_embed)
-        
+
+        # Decode goal position from embedding using pre-initialized layer
+        goal_position = self.goal_decoder(goal_embed)
+
         # Linear interpolation
         path = []
         for i in range(T):
             alpha = t[i]
             pos = start * (1 - alpha) + goal_position * alpha
             path.append(pos)
-            
+
         return torch.stack(path, dim=1)
     
     def _augment_path_with_metric(
