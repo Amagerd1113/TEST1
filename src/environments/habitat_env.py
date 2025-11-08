@@ -13,14 +13,26 @@ import logging
 import habitat
 from habitat import Config, Dataset
 from habitat.core.env import Env
+from habitat.core.simulator import Simulator
 from habitat.tasks.nav.nav import NavigationTask, NavigationEpisode
 from habitat.config.default import get_config
 from habitat.datasets import make_dataset
 from habitat.sims import make_sim
 from habitat.tasks import make_task
-from habitat_baselines.common.baseline_registry import baseline_registry
+try:
+    from habitat.sims.habitat_simulator.actions import HabitatSimActions
+except ImportError:
+    # Fallback for different habitat versions
+    from habitat_sim import SimulatorActions as HabitatSimActions
+try:
+    from habitat_baselines.common.baseline_registry import baseline_registry
+except ImportError:
+    baseline_registry = None
 from habitat.utils.visualizations import maps
-from habitat.utils.visualizations.utils import images_to_video
+try:
+    from habitat.utils.visualizations.utils import images_to_video
+except ImportError:
+    images_to_video = None
 
 import torch
 import torch.nn.functional as F

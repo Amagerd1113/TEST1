@@ -18,14 +18,40 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 import habitat
-from habitat.sims.habitat_simulator.actions import HabitatSimActions
+try:
+    from habitat.sims.habitat_simulator.actions import HabitatSimActions
+except ImportError:
+    # Fallback for different habitat versions
+    try:
+        from habitat_sim import SimulatorActions as HabitatSimActions
+    except ImportError:
+        # Define basic actions if neither import works
+        class HabitatSimActions:
+            STOP = 0
+            MOVE_FORWARD = 1
+            TURN_LEFT = 2
+            TURN_RIGHT = 3
 
 # Setup path
 import sys
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent))
 
-from src.core.vla_gr_agent import VLAGRAgent, VLAGRState
-from src.utils.visualization import Visualizer
+# Import VLA-GR agent (use v2 version if available)
+try:
+    from src.core.vla_gr_agent import ConferenceVLAGRAgent as VLAGRAgent, VLAGRStateV2 as VLAGRState
+except ImportError:
+    try:
+        from src.core.vla_gr_agent import VLAGRAgent, VLAGRState
+    except ImportError:
+        logger.error("Could not import VLA-GR agent")
+        VLAGRAgent = None
+        VLAGRState = None
+
+try:
+    from src.utils.visualization import Visualizer
+except ImportError:
+    Visualizer = None
+
 from src.datasets.habitat_dataset import HabitatNavigationDataset
 
 logger = logging.getLogger(__name__)
@@ -89,18 +115,23 @@ class VLAGRDemo:
     
     def _setup_simulator(self):
         """Initialize Habitat simulator."""
-        habitat_config = habitat.get_config(
-            config_paths="configs/tasks/pointnav_gibson.yaml"
-        )
-        
+        from habitat.config.default import get_config
+        from habitat.sims import make_sim
+
+        try:
+            habitat_config = get_config(config_paths="configs/tasks/pointnav_gibson.yaml")
+        except:
+            # Fallback: create basic config
+            habitat_config = get_config()
+
         habitat_config.defrost()
         habitat_config.SIMULATOR.RGB_SENSOR.WIDTH = 640
         habitat_config.SIMULATOR.RGB_SENSOR.HEIGHT = 480
         habitat_config.SIMULATOR.DEPTH_SENSOR.WIDTH = 640
         habitat_config.SIMULATOR.DEPTH_SENSOR.HEIGHT = 480
         habitat_config.freeze()
-        
-        return habitat.sims.make_sim(
+
+        return make_sim(
             id_sim=habitat_config.SIMULATOR.TYPE,
             config=habitat_config.SIMULATOR
         )

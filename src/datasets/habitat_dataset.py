@@ -18,8 +18,10 @@ from PIL import Image
 import habitat
 from habitat.config import Config
 from habitat.core.simulator import Simulator
+from habitat.config.default import get_config
 from habitat.tasks.nav.nav import NavigationEpisode, NavigationGoal
 from habitat.utils.visualizations import maps
+from habitat.sims import make_sim
 
 import logging
 
@@ -52,7 +54,16 @@ class HabitatNavigationDataset(Dataset):
         
         # Setup Habitat
         self.habitat_config = self._create_habitat_config()
-        self.simulator = Simulator(self.habitat_config)
+        # Use make_sim to create simulator properly
+        try:
+            self.simulator = make_sim(
+                id_sim=self.habitat_config.SIMULATOR.TYPE,
+                config=self.habitat_config.SIMULATOR
+            )
+        except Exception as e:
+            logger.warning(f"Failed to create simulator with make_sim: {e}")
+            # Fallback to direct instantiation
+            self.simulator = Simulator(self.habitat_config)
         
         # Load episodes
         self.episodes = self._load_episodes()
@@ -72,9 +83,12 @@ class HabitatNavigationDataset(Dataset):
         
     def _create_habitat_config(self) -> Config:
         """Create Habitat simulator configuration."""
-        config = habitat.get_config(
-            config_paths="configs/tasks/pointnav_gibson.yaml"
-        )
+        # Use get_config from habitat.config.default
+        try:
+            config = get_config(config_paths="configs/tasks/pointnav_gibson.yaml")
+        except:
+            # Fallback: create basic config
+            config = get_config()
         
         # Update with our config
         config.defrost()
