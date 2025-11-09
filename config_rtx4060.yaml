@@ -1,0 +1,327 @@
+# VLA-GR Training Configuration for RTX 4060 (8GB VRAM)
+# Optimized for consumer-grade GPU with memory-efficient settings
+# Expected training time: ~48-72 hours for convergence
+
+defaults:
+  - _self_
+  - model: vla_gr_enhanced
+  - training: rtx4060
+  - environment: habitat
+  - hardware: rtx4060
+
+project:
+  name: "VLA-GR-Enhanced-RTX4060"
+  version: "2.0.0"
+  description: "Enhanced VLA-GR with SOTA modules for RTX 4060"
+  seed: 42
+  debug: false
+  log_level: "INFO"
+  experiment_name: "rtx4060_baseline"
+
+model:
+  # Vision Encoder (Memory-optimized)
+  vision:
+    backbone: "dinov2_vits14"  # Smaller variant for memory efficiency
+    input_size: [224, 224]
+    depth_channels: 1
+    use_depth: true
+    pretrained: true
+    freeze_backbone: true  # Freeze to save memory
+
+  # Language Encoder (Lightweight)
+  language:
+    model: "microsoft/phi-2"  # 2.7B params
+    max_tokens: 128  # Reduced from 256
+    embed_dim: 768
+    vocab_size: 50304
+    use_cache: false  # Disable KV cache to save memory
+    gradient_checkpointing: true
+
+  # VLA Transformer (Reduced capacity)
+  vla:
+    hidden_dim: 512  # Reduced from 768
+    num_layers: 6  # Reduced from 12
+    num_heads: 8
+    mlp_ratio: 2.0  # Reduced from 4.0
+    dropout: 0.1
+    action_dim: 7
+    use_flash_attention: false  # Not available on RTX 4060
+
+  # Enhanced: Diffusion Policy Module
+  diffusion_policy:
+    enabled: true
+    action_dim: 7
+    hidden_dim: 256  # Compact size
+    context_dim: 512
+    num_layers: 4  # Reduced from 6
+    num_heads: 8
+    num_diffusion_steps: 50  # Reduced from 100
+    prediction_type: "v_prediction"
+    max_action_horizon: 8  # Reduced from 16
+    num_inference_steps: 5  # Fast sampling
+
+  # Enhanced: Dual-System Architecture
+  dual_system:
+    enabled: true
+    visual_dim: 512
+    vlm_dim: 512
+    proprio_dim: 7
+    action_dim: 7
+    s1_hidden_dim: 128  # Very compact S1
+    s2_hidden_dim: 256  # Compact S2
+    s1_layers: 2  # Minimal layers
+    s2_reasoning_steps: 2
+    max_subgoals: 3  # Reduced from 5
+    planning_frequency_hz: 1.0  # Lower frequency
+    control_frequency_hz: 10.0  # Lower than 50Hz
+
+  # Enhanced: Trajectory Attention
+  trajectory_attention:
+    enabled: true
+    hidden_dim: 256
+    num_layers: 3  # Reduced from 4
+    num_heads: 4  # Reduced from 8
+    num_action_queries: 8  # Reduced from 16
+    use_rope: true
+
+  # Enhanced: PEFT (Parameter-Efficient Fine-Tuning)
+  peft:
+    method: "lora"  # Options: lora, oft, adapter, none
+    enabled: true
+    lora_rank: 4
+    lora_alpha: 8
+    lora_dropout: 0.05
+    target_modules: ["q_proj", "v_proj", "out_proj"]  # Selective LoRA
+
+  # GR Field Parameters (Reduced grid)
+  gr_field:
+    grid_size: [32, 32, 16]  # Reduced from [64, 64, 32]
+    field_dim: 10
+    c: 1.0
+    G: 1.0
+    lambda_curvature: 0.1
+    max_mass: 10.0
+    use_sparse_computation: true  # Memory optimization
+
+  # Affordance Quantification
+  affordance:
+    num_classes: 80
+    sigma_min: 0.1
+    sigma_max: 2.0
+    confidence_threshold: 0.3
+    use_bayesian_update: true
+
+  # Path Optimization (Reduced horizon)
+  path:
+    horizon: 25  # Reduced from 50
+    dt: 0.1
+    max_velocity: 2.0
+    max_acceleration: 5.0
+    collision_radius: 0.25
+    geodesic_samples: 50  # Reduced from 100
+    optimization_steps: 10  # Reduced from 20
+
+  # Occlusion Handling
+  occlusion:
+    completion_model: "unet"
+    mask_ratio_train: 0.15  # Reduced from 0.2
+    mask_ratio_test: 0.2
+    completion_threshold: 0.5
+    uncertainty_aware: true
+
+training:
+  # Optimization
+  optimizer: "adamw"
+  learning_rate: 3e-5  # Lower LR for stability
+  weight_decay: 0.01
+  scheduler: "cosine"
+  warmup_steps: 500
+  max_steps: 50000  # Reduced for faster convergence
+  gradient_clip: 0.5  # Stricter clipping
+
+  # Batch Sizes (Critical for 8GB VRAM)
+  batch_size: 2  # Very small batch
+  eval_batch_size: 4
+  gradient_accumulation: 16  # Accumulate to effective batch of 32
+
+  # Data Loading
+  num_workers: 2  # Reduced to save RAM
+  pin_memory: false  # Disable to save RAM
+  prefetch_factor: 1
+  persistent_workers: false
+
+  # Losses (Weighted for enhanced modules)
+  losses:
+    action: 1.0
+    field: 0.3  # Reduced
+    affordance: 0.2  # Reduced
+    depth: 0.1  # Reduced
+    entropy: 0.01
+    diffusion: 0.5  # New: diffusion policy loss
+    dual_system: 0.3  # New: dual-system coordination loss
+    trajectory: 0.4  # New: trajectory prediction loss
+
+  # Augmentation (Reduced for speed)
+  augment:
+    random_crop: false  # Disable for speed
+    color_jitter: false  # Disable for speed
+    gaussian_noise: 0.005  # Reduced
+    depth_noise: 0.01  # Reduced
+
+  # Checkpointing
+  save_every: 2000
+  eval_every: 1000
+  checkpoint_dir: "checkpoints/rtx4060/"
+  keep_last_n_checkpoints: 3  # Save space
+  resume: null
+
+  # Mixed Precision (Essential for RTX 4060)
+  mixed_precision: true
+  fp16: true
+  bf16: false  # Not supported on RTX 4060
+  fp16_opt_level: "O1"  # Conservative
+  fp16_scale_window: 200
+
+  # Memory Optimization
+  memory:
+    gradient_checkpointing: true  # Essential
+    empty_cache_every: 50  # Frequent cache clearing
+    max_memory_gb: 7  # Leave 1GB for system
+    use_cpu_offload: true  # Offload to RAM if needed
+    activation_checkpointing: true
+
+environment:
+  # Habitat Configuration
+  habitat:
+    scene_dataset: "hm3d"
+    split: "train"
+    max_episode_steps: 300  # Reduced from 500
+    success_distance: 0.2
+    num_scenes: 10  # Limited dataset for faster iteration
+
+  # Sensors (Reduced resolution)
+  sensors:
+    rgb:
+      width: 320  # Reduced from 640
+      height: 240  # Reduced from 480
+      fov: 79
+    depth:
+      width: 320
+      height: 240
+      min_depth: 0.0
+      max_depth: 10.0
+    semantic:
+      width: 320
+      height: 240
+
+  # Task
+  task:
+    type: "objectnav"
+    goals: ["chair", "table", "bed"]  # Reduced from 5 objects
+    reward_success: 10.0
+    reward_collision: -0.1
+    reward_forward: 0.01
+    slack_reward: -0.001
+
+evaluation:
+  # Metrics
+  metrics:
+    - "success_rate"
+    - "spl"
+    - "collision_rate"
+    - "distance_to_goal"
+    - "trajectory_length"
+    - "field_accuracy"
+    - "affordance_precision"
+    - "diffusion_mse"  # New
+    - "planning_frequency"  # New
+
+  # Evaluation Settings
+  num_episodes: 100  # Reduced from 1000
+  visualize: false
+  save_trajectories: false  # Disable to save space
+  save_videos: false
+
+deployment:
+  # Model Export
+  export:
+    onnx: true
+    tensorrt: false  # Not needed for RTX 4060
+    quantize: true  # Enable INT8 quantization
+    optimize_for_mobile: false
+
+  # Serving
+  server:
+    host: "0.0.0.0"
+    port: 8080
+    workers: 1  # Single worker
+    max_batch_size: 1
+    timeout: 30
+
+  # Robot Interface
+  robot:
+    type: "simulation"
+    control_frequency: 10
+    safety_checks: true
+    emergency_stop: true
+
+hardware:
+  # GPU Settings
+  device: "cuda"
+  num_gpus: 1
+  gpu_ids: [0]
+  allow_tf32: true  # Enable TF32 for speed
+
+  # Distributed Training
+  distributed:
+    enabled: false
+
+  # Memory Management
+  memory:
+    gradient_checkpointing: true
+    empty_cache_every: 50
+    max_memory_gb: 7
+    reserved_memory_gb: 1
+
+logging:
+  # Weights & Biases
+  wandb:
+    enabled: true
+    project: "vla-gr-rtx4060"
+    entity: null
+    tags: ["vla", "gr", "navigation", "rtx4060", "enhanced"]
+    notes: "RTX 4060 training with SOTA enhancements"
+
+  # Tensorboard
+  tensorboard:
+    enabled: true
+    log_dir: "logs/rtx4060/"
+
+  # Console
+  console:
+    enabled: true
+    format: "[%(asctime)s] %(levelname)s - %(message)s"
+    log_every: 50  # More frequent logging
+
+  # File
+  file:
+    enabled: true
+    path: "logs/rtx4060/vla_gr.log"
+    max_size_mb: 50
+    backup_count: 3
+
+# Performance Targets for RTX 4060
+# Expected metrics after 50k steps (~48h training):
+# - Success Rate: 80-85% (vs 77.4% baseline)
+# - Collision Rate: <15% (vs 16.5% baseline)
+# - Training Speed: ~0.8-1.2 steps/sec
+# - Peak VRAM: ~7.5GB
+# - Training Time: 48-72 hours
+
+# Hydra Configuration
+hydra:
+  run:
+    dir: outputs/rtx4060/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/rtx4060/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
