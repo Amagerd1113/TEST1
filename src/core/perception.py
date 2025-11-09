@@ -599,11 +599,11 @@ class CrossModalFusion(nn.Module):
 
 class OcclusionDetector(nn.Module):
     """Detect occluded regions in depth maps."""
-    
+
     def __init__(self, threshold: float = 0.5):
         super().__init__()
         self.threshold = threshold
-        
+
         # Learned occlusion detection
         self.detector = nn.Sequential(
             nn.Conv2d(1, 16, 3, padding=1),
@@ -613,29 +613,75 @@ class OcclusionDetector(nn.Module):
             nn.Conv2d(32, 1, 3, padding=1),
             nn.Sigmoid()
         )
-        
+
     def forward(self, depth: torch.Tensor) -> Optional[torch.Tensor]:
         """
         Detect occluded regions in depth map.
-        
+
         Returns:
             Binary mask where 1 indicates occluded regions
         """
-        
+
         # Simple heuristic: zero depth indicates occlusion
         occlusion_mask = (depth <= 0).float()
-        
+
         # Learned detection for more complex occlusions
         learned_mask = self.detector(depth)
-        
+
         # Combine heuristic and learned masks
         combined_mask = torch.max(occlusion_mask, learned_mask)
-        
+
         # Threshold
         binary_mask = (combined_mask > self.threshold).float()
-        
+
         # Return None if no occlusions
         if binary_mask.sum() == 0:
             return None
-            
+
         return binary_mask
+
+
+class AdvancedPerceptionModule(nn.Module):
+    """
+    Advanced perception module for ConferenceVLAGRAgent.
+    Integrates all perception components with uncertainty estimation.
+    """
+
+    def __init__(self, config: Dict):
+        super().__init__()
+        self.config = config
+
+        # Use the main perception module
+        self.perception = PerceptionModule(config)
+
+    def forward(
+        self,
+        rgb: torch.Tensor,
+        depth: torch.Tensor,
+        semantic: Optional[torch.Tensor] = None,
+        language: List[str] = None
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Forward pass with advanced perception.
+
+        Returns dict with:
+            - visual_features: [B, N, D]
+            - visual_uncertainty: [B, N, 1]
+            - language_features: [B, L, D]
+        """
+
+        # Run base perception
+        perception_output = self.perception(rgb, depth, language)
+
+        # Expand uncertainty to per-token level
+        B, N, D = perception_output['visual_features'].shape
+        visual_uncertainty = perception_output['uncertainty'].unsqueeze(1).unsqueeze(1)
+        visual_uncertainty = visual_uncertainty.expand(B, N, 1)
+
+        return {
+            'visual_features': perception_output['visual_features'],
+            'visual_uncertainty': visual_uncertainty,
+            'language_features': perception_output['language_features'],
+            'completed_depth': perception_output['completed_depth'],
+            'occlusion_mask': perception_output['occlusion_mask']
+        }
