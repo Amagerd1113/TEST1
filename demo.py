@@ -36,6 +36,9 @@ except ImportError:
 import sys
 sys.path.append(str(Path(__file__).parent))
 
+# Setup logger first
+logger = logging.getLogger(__name__)
+
 # Import VLA-GR agent (use v2 version if available)
 try:
     from src.core.vla_gr_agent import ConferenceVLAGRAgent as VLAGRAgent, VLAGRStateV2 as VLAGRState
@@ -52,9 +55,11 @@ try:
 except ImportError:
     Visualizer = None
 
-from src.datasets.habitat_dataset import HabitatNavigationDataset
-
-logger = logging.getLogger(__name__)
+try:
+    from src.datasets.habitat_dataset import HabitatNavigationDataset
+except ImportError:
+    logger.warning("Could not import HabitatNavigationDataset")
+    HabitatNavigationDataset = None
 
 
 class VLAGRDemo:
@@ -186,9 +191,10 @@ class VLAGRDemo:
             'success': False
         }
         
-        # Reset agent
-        self.agent.reset()
-        
+        # Reset agent (if method exists)
+        if hasattr(self.agent, 'reset'):
+            self.agent.reset()
+
         logger.info(f"Episode reset at position {start_position}")
         
     def step(self, instruction: str) -> Dict:
@@ -265,25 +271,37 @@ class VLAGRDemo:
         # Update position
         agent_state = self.simulator.get_agent_state()
         new_position = agent_state.position
-        
+
+        # Convert rotation to list if needed (for Habitat 0.3.3 compatibility)
+        rotation = agent_state.rotation
+        if hasattr(rotation, 'components'):
+            rotation = rotation.components.tolist()
+        elif hasattr(rotation, 'tolist'):
+            rotation = rotation.tolist()
+        elif not isinstance(rotation, list):
+            rotation = list(rotation)
+
         # Check for collision
         distance_moved = np.linalg.norm(
             np.array(new_position) - self.current_position.cpu().numpy()
         )
-        
+
         if distance_moved < 0.01:  # Threshold for collision detection
             self.metrics['collisions'] += 1
             logger.warning("Collision detected!")
-            
+
         # Update state
         self.current_position = torch.tensor(new_position, device=self.device)
         self.current_orientation = torch.tensor(
-            agent_state.rotation,
+            rotation,
             device=self.device
         )
-        
+
         # Update trajectory
-        self.trajectory_history.append(new_position.tolist())
+        if hasattr(new_position, 'tolist'):
+            self.trajectory_history.append(new_position.tolist())
+        else:
+            self.trajectory_history.append(list(new_position))
         self.metrics['distance_traveled'] += distance_moved
         
     def _update_visualization(self, obs: Dict, outputs: Dict):
