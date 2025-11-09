@@ -36,6 +36,9 @@ except ImportError:
 import sys
 sys.path.append(str(Path(__file__).parent))
 
+# Setup logger first
+logger = logging.getLogger(__name__)
+
 # Import VLA-GR agent (use v2 version if available)
 try:
     from src.core.vla_gr_agent import ConferenceVLAGRAgent as VLAGRAgent, VLAGRStateV2 as VLAGRState
@@ -52,9 +55,11 @@ try:
 except ImportError:
     Visualizer = None
 
-from src.datasets.habitat_dataset import HabitatNavigationDataset
-
-logger = logging.getLogger(__name__)
+try:
+    from src.datasets.habitat_dataset import HabitatNavigationDataset
+except ImportError:
+    logger.warning("Could not import HabitatNavigationDataset")
+    HabitatNavigationDataset = None
 
 
 class VLAGRDemo:

@@ -29,11 +29,8 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from src.core.vla_gr_agent import VLAGRAgent, VLAGRState
 from src.datasets.habitat_dataset import HabitatNavigationDataset
-from src.training.trainer import VLAGRTrainer
 from src.training.losses import VLAGRLoss
-from src.evaluation.evaluator import VLAGRTevaluator
-from src.utils.metrics import MetricTracker
-from src.utils.visualization import Visualizer
+from src.evaluation.evaluator import VLAGREvaluator
 
 logger = logging.getLogger(__name__)
 
@@ -61,35 +58,26 @@ class TrainingPipeline:
         
         # Initialize loss function
         self.loss_fn = VLAGRLoss(config)
-        
+
         # Initialize optimizer and scheduler
         self.optimizer, self.scheduler = self._build_optimizer()
-        
+
         # Initialize gradient scaler for mixed precision
         self.scaler = GradScaler() if config.training.mixed_precision else None
-        
-        # Initialize trainer
-        self.trainer = VLAGRTrainer(
-            model=self.model,
-            optimizer=self.optimizer,
-            scheduler=self.scheduler,
-            loss_fn=self.loss_fn,
-            scaler=self.scaler,
-            config=config
-        )
-        
-        # Initialize evaluator
-        self.evaluator = VLAGREvaluator(
-            model=self.model,
-            config=config
-        )
-        
+
+        # Initialize evaluator (optional)
+        try:
+            self.evaluator = VLAGREvaluator(
+                model=self.model,
+                config=config
+            )
+        except Exception as e:
+            logger.warning(f"Could not initialize evaluator: {e}")
+            self.evaluator = None
+
         # Initialize metrics tracker
-        self.metrics = MetricTracker(config.evaluation.metrics)
-        
-        # Initialize visualizer
-        self.visualizer = Visualizer(config)
-        
+        self.metrics = {}
+
         # Setup experiment tracking
         self._setup_experiment_tracking()
         
