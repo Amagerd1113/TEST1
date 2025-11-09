@@ -453,9 +453,29 @@ class LanguageEncoder(nn.Module):
         # Using a smaller model for efficiency
         if 'phi' in model_name.lower():
             # Microsoft Phi-2 is efficient and powerful
-            from transformers import PhiModel
-            self.model = PhiModel.from_pretrained(model_name)
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            # Note: PhiForCausalLM requires transformers>=4.37.0
+            try:
+                from transformers import PhiForCausalLM
+                self.model = PhiForCausalLM.from_pretrained(
+                    model_name,
+                    trust_remote_code=True,
+                    torch_dtype="auto"
+                )
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    trust_remote_code=True
+                )
+            except ImportError:
+                # Fallback: use AutoModel with trust_remote_code
+                logger.warning("PhiForCausalLM not available, using AutoModel")
+                self.model = AutoModel.from_pretrained(
+                    model_name,
+                    trust_remote_code=True
+                )
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    trust_remote_code=True
+                )
         else:
             # Fallback to BERT
             self.model = AutoModel.from_pretrained('bert-base-uncased')
