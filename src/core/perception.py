@@ -453,10 +453,27 @@ class LanguageEncoder(nn.Module):
         # Using a smaller model for efficiency
         if 'phi' in model_name.lower():
             # Microsoft Phi-2 is efficient and powerful
-            # Note: PhiForCausalLM requires transformers>=4.37.0
+            # Phi-2 integrated in transformers>=4.37.0
+            # Use AutoModelForCausalLM for best compatibility
             try:
-                from transformers import PhiForCausalLM
-                self.model = PhiForCausalLM.from_pretrained(
+                from transformers import AutoModelForCausalLM
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    trust_remote_code=True,
+                    torch_dtype="auto",
+                    device_map="auto"  # Automatic device placement
+                )
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    trust_remote_code=True
+                )
+                # For feature extraction, we'll use the model's base
+                # AutoModelForCausalLM has .model attribute with transformer layers
+                logger.info(f"Loaded Phi-2 model: {model_name}")
+            except Exception as e:
+                # Fallback: use AutoModel for feature extraction
+                logger.warning(f"AutoModelForCausalLM failed ({e}), using AutoModel")
+                self.model = AutoModel.from_pretrained(
                     model_name,
                     trust_remote_code=True,
                     torch_dtype="auto"
@@ -465,19 +482,9 @@ class LanguageEncoder(nn.Module):
                     model_name,
                     trust_remote_code=True
                 )
-            except ImportError:
-                # Fallback: use AutoModel with trust_remote_code
-                logger.warning("PhiForCausalLM not available, using AutoModel")
-                self.model = AutoModel.from_pretrained(
-                    model_name,
-                    trust_remote_code=True
-                )
-                self.tokenizer = AutoTokenizer.from_pretrained(
-                    model_name,
-                    trust_remote_code=True
-                )
         else:
-            # Fallback to BERT
+            # Fallback to BERT for unknown models
+            logger.info("Using BERT-base-uncased for language encoding")
             self.model = AutoModel.from_pretrained('bert-base-uncased')
             self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
             
@@ -509,11 +516,21 @@ class LanguageEncoder(nn.Module):
         with torch.no_grad():
             outputs = self.model(
                 input_ids=input_ids,
-                attention_mask=attention_mask
+                attention_mask=attention_mask,
+                output_hidden_states=True  # Ensure hidden states are returned
             )
-            
+
         # Use last hidden states
-        features = outputs.last_hidden_state
+        # For AutoModelForCausalLM, hidden_states is in outputs.hidden_states[-1]
+        # For AutoModel, it's in outputs.last_hidden_state
+        if hasattr(outputs, 'last_hidden_state'):
+            features = outputs.last_hidden_state
+        elif hasattr(outputs, 'hidden_states') and outputs.hidden_states:
+            features = outputs.hidden_states[-1]
+        else:
+            # Fallback: try to get from logits
+            logger.warning("Could not find hidden states, using alternative extraction")
+            features = outputs.logits if hasattr(outputs, 'logits') else outputs[0]
         
         return features
 
