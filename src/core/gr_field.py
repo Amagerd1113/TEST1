@@ -706,5 +706,76 @@ class FieldRefinementNetwork(nn.Module):
         
         # Residual connection
         output = field + self.residual_weight * refined
-        
+
         return output
+
+
+class AdaptiveGRFieldManager(nn.Module):
+    """
+    Adaptive GR field management with learning-based field dynamics.
+    Wraps GRFieldManager with additional adaptive capabilities.
+    """
+
+    def __init__(self, config: Dict):
+        super().__init__()
+        self.config = config
+
+        # Base GR field manager
+        self.gr_field_manager = GRFieldManager(config)
+
+        # Learnable field adaptation parameters
+        self.adaptation_weights = nn.Parameter(torch.ones(3))
+
+    def forward(
+        self,
+        affordance_field: torch.Tensor,
+        position: Optional[torch.Tensor] = None,
+        velocity: Optional[torch.Tensor] = None,
+        field_coupling: Optional[torch.Tensor] = None,
+        previous_field: Optional[torch.Tensor] = None
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Compute adaptive GR field.
+
+        Returns dict with:
+            - metric_tensor: [B, H, W, 10]
+            - christoffel_symbols: [B, H, W, 40]
+            - riemann_curvature: [B, H, W, 20]
+        """
+
+        # Compute base GR field
+        gr_output = self.gr_field_manager(
+            affordance_map=affordance_field,
+            position=position,
+            velocity=velocity
+        )
+
+        metric_tensor = gr_output['metric_tensor']
+        christoffel = gr_output['christoffel_symbols']
+        riemann = gr_output['riemann_tensor']
+
+        # Apply adaptive modifications if previous field available
+        if previous_field is not None:
+            # Temporal consistency: blend with previous field
+            alpha = torch.sigmoid(self.adaptation_weights[0])
+            metric_tensor = alpha * metric_tensor + (1 - alpha) * previous_field
+
+        # Apply field coupling if provided
+        if field_coupling is not None:
+            coupling_scale = torch.sigmoid(self.adaptation_weights[1])
+            metric_tensor = metric_tensor * (1 + coupling_scale * 0.1)
+
+        return {
+            'metric_tensor': metric_tensor,
+            'christoffel_symbols': christoffel,
+            'riemann_curvature': riemann,
+            'energy_momentum': gr_output['energy_momentum'],
+            'mass_distribution': gr_output['mass_distribution']
+        }
+
+    def get_field_memory(self) -> Optional[torch.Tensor]:
+        """Return cached field for temporal consistency."""
+        if hasattr(self.gr_field_manager, 'field_cache') and self.gr_field_manager.field_cache:
+            # Return most recent cached field
+            return list(self.gr_field_manager.field_cache.values())[-1]
+        return None

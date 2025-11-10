@@ -601,5 +601,69 @@ class SpatialReasoningModule(nn.Module):
         
         # Combine attended and graph features
         output = self.norm(attended_features + 0.5 * graph_aggregated)
-        
+
         return output
+
+
+class UncertaintyAwareAffordanceModule(nn.Module):
+    """
+    Uncertainty-aware affordance quantification for ConferenceVLAGRAgent.
+    Wraps AffordanceQuantifier with uncertainty tracking.
+    """
+
+    def __init__(self, config: Dict):
+        super().__init__()
+        self.config = config
+
+        # Use main affordance quantifier
+        self.affordance_quantifier = AffordanceQuantifier(config)
+
+    def forward(
+        self,
+        visual_features: torch.Tensor,
+        language_features: torch.Tensor,
+        depth_map: torch.Tensor,
+        uncertainty: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Quantify affordances with uncertainty.
+
+        Returns dict with:
+            - affordance_field: [B, H, W, C]
+            - uncertainty: [B, H, W, 1]
+        """
+
+        # Run base affordance quantification
+        affordance_output = self.affordance_quantifier(
+            visual_features=visual_features,
+            language_features=language_features,
+            depth_map=depth_map,
+            previous_affordance=None
+        )
+
+        # Combine with input uncertainty
+        B = depth_map.shape[0]
+        H, W = depth_map.shape[-2:]
+
+        # Expand uncertainty to spatial dimensions
+        if uncertainty.dim() == 2:  # [B, N, 1]
+            # Average over tokens
+            uncertainty_pooled = uncertainty.mean(dim=1, keepdim=True)  # [B, 1, 1]
+        elif uncertainty.dim() == 3:  # [B, N, 1]
+            uncertainty_pooled = uncertainty.mean(dim=1, keepdim=True)  # [B, 1, 1]
+        else:
+            uncertainty_pooled = uncertainty
+
+        # Expand to spatial size
+        uncertainty_spatial = uncertainty_pooled.unsqueeze(-1).unsqueeze(-1).expand(B, H, W, 1)
+
+        # Combine with affordance uncertainty
+        combined_uncertainty = (uncertainty_spatial + affordance_output['uncertainty_map']) / 2
+
+        return {
+            'affordance_field': affordance_output['affordance_map'],
+            'uncertainty': combined_uncertainty,
+            'mass_map': affordance_output['mass_map'],
+            'friction_map': affordance_output['friction_map'],
+            'traversability_map': affordance_output['traversability_map']
+        }

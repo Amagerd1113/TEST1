@@ -21,6 +21,16 @@ import math
 from einops import rearrange, repeat, einsum
 from torch.distributions import Normal, Categorical
 
+# Import missing modules
+from .perception import AdvancedPerceptionModule
+from .affordance import UncertaintyAwareAffordanceModule
+from .gr_field import AdaptiveGRFieldManager
+from .agent_modules import (
+    SpacetimeMemoryModule,
+    HierarchicalActionDecoder,
+    EpistemicUncertaintyModule
+)
+
 logger = logging.getLogger(__name__)
 
 

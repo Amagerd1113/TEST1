@@ -453,10 +453,27 @@ class LanguageEncoder(nn.Module):
         # Using a smaller model for efficiency
         if 'phi' in model_name.lower():
             # Microsoft Phi-2 is efficient and powerful
-            # Note: PhiForCausalLM requires transformers>=4.37.0
+            # Phi-2 integrated in transformers>=4.37.0
+            # Use AutoModelForCausalLM for best compatibility
             try:
-                from transformers import PhiForCausalLM
-                self.model = PhiForCausalLM.from_pretrained(
+                from transformers import AutoModelForCausalLM
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    trust_remote_code=True,
+                    torch_dtype="auto",
+                    device_map="auto"  # Automatic device placement
+                )
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    trust_remote_code=True
+                )
+                # For feature extraction, we'll use the model's base
+                # AutoModelForCausalLM has .model attribute with transformer layers
+                logger.info(f"Loaded Phi-2 model: {model_name}")
+            except Exception as e:
+                # Fallback: use AutoModel for feature extraction
+                logger.warning(f"AutoModelForCausalLM failed ({e}), using AutoModel")
+                self.model = AutoModel.from_pretrained(
                     model_name,
                     trust_remote_code=True,
                     torch_dtype="auto"
@@ -465,19 +482,9 @@ class LanguageEncoder(nn.Module):
                     model_name,
                     trust_remote_code=True
                 )
-            except ImportError:
-                # Fallback: use AutoModel with trust_remote_code
-                logger.warning("PhiForCausalLM not available, using AutoModel")
-                self.model = AutoModel.from_pretrained(
-                    model_name,
-                    trust_remote_code=True
-                )
-                self.tokenizer = AutoTokenizer.from_pretrained(
-                    model_name,
-                    trust_remote_code=True
-                )
         else:
-            # Fallback to BERT
+            # Fallback to BERT for unknown models
+            logger.info("Using BERT-base-uncased for language encoding")
             self.model = AutoModel.from_pretrained('bert-base-uncased')
             self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
             
@@ -509,11 +516,21 @@ class LanguageEncoder(nn.Module):
         with torch.no_grad():
             outputs = self.model(
                 input_ids=input_ids,
-                attention_mask=attention_mask
+                attention_mask=attention_mask,
+                output_hidden_states=True  # Ensure hidden states are returned
             )
-            
+
         # Use last hidden states
-        features = outputs.last_hidden_state
+        # For AutoModelForCausalLM, hidden_states is in outputs.hidden_states[-1]
+        # For AutoModel, it's in outputs.last_hidden_state
+        if hasattr(outputs, 'last_hidden_state'):
+            features = outputs.last_hidden_state
+        elif hasattr(outputs, 'hidden_states') and outputs.hidden_states:
+            features = outputs.hidden_states[-1]
+        else:
+            # Fallback: try to get from logits
+            logger.warning("Could not find hidden states, using alternative extraction")
+            features = outputs.logits if hasattr(outputs, 'logits') else outputs[0]
         
         return features
 
@@ -599,11 +616,11 @@ class CrossModalFusion(nn.Module):
 
 class OcclusionDetector(nn.Module):
     """Detect occluded regions in depth maps."""
-    
+
     def __init__(self, threshold: float = 0.5):
         super().__init__()
         self.threshold = threshold
-        
+
         # Learned occlusion detection
         self.detector = nn.Sequential(
             nn.Conv2d(1, 16, 3, padding=1),
@@ -613,29 +630,75 @@ class OcclusionDetector(nn.Module):
             nn.Conv2d(32, 1, 3, padding=1),
             nn.Sigmoid()
         )
-        
+
     def forward(self, depth: torch.Tensor) -> Optional[torch.Tensor]:
         """
         Detect occluded regions in depth map.
-        
+
         Returns:
             Binary mask where 1 indicates occluded regions
         """
-        
+
         # Simple heuristic: zero depth indicates occlusion
         occlusion_mask = (depth <= 0).float()
-        
+
         # Learned detection for more complex occlusions
         learned_mask = self.detector(depth)
-        
+
         # Combine heuristic and learned masks
         combined_mask = torch.max(occlusion_mask, learned_mask)
-        
+
         # Threshold
         binary_mask = (combined_mask > self.threshold).float()
-        
+
         # Return None if no occlusions
         if binary_mask.sum() == 0:
             return None
-            
+
         return binary_mask
+
+
+class AdvancedPerceptionModule(nn.Module):
+    """
+    Advanced perception module for ConferenceVLAGRAgent.
+    Integrates all perception components with uncertainty estimation.
+    """
+
+    def __init__(self, config: Dict):
+        super().__init__()
+        self.config = config
+
+        # Use the main perception module
+        self.perception = PerceptionModule(config)
+
+    def forward(
+        self,
+        rgb: torch.Tensor,
+        depth: torch.Tensor,
+        semantic: Optional[torch.Tensor] = None,
+        language: List[str] = None
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Forward pass with advanced perception.
+
+        Returns dict with:
+            - visual_features: [B, N, D]
+            - visual_uncertainty: [B, N, 1]
+            - language_features: [B, L, D]
+        """
+
+        # Run base perception
+        perception_output = self.perception(rgb, depth, language)
+
+        # Expand uncertainty to per-token level
+        B, N, D = perception_output['visual_features'].shape
+        visual_uncertainty = perception_output['uncertainty'].unsqueeze(1).unsqueeze(1)
+        visual_uncertainty = visual_uncertainty.expand(B, N, 1)
+
+        return {
+            'visual_features': perception_output['visual_features'],
+            'visual_uncertainty': visual_uncertainty,
+            'language_features': perception_output['language_features'],
+            'completed_depth': perception_output['completed_depth'],
+            'occlusion_mask': perception_output['occlusion_mask']
+        }

@@ -23,6 +23,14 @@ from habitat.tasks.nav.nav import NavigationEpisode, NavigationGoal
 from habitat.utils.visualizations import maps
 from habitat.sims import make_sim
 
+# Import make_dataset for proper dataset loading (Habitat 0.3.3+)
+try:
+    from habitat.datasets import make_dataset
+    HAS_MAKE_DATASET = True
+except ImportError:
+    logger.warning("make_dataset not available, using legacy dataset loading")
+    HAS_MAKE_DATASET = False
+
 import logging
 
 logger = logging.getLogger(__name__)
