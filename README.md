@@ -16,12 +16,17 @@ VLA-GR is a cutting-edge robotic navigation framework that combines Vision-Langu
 - **Field-Injected Attention**: Novel attention mechanism modulated by GR fields
 - **End-to-End Differentiable**: Fully trainable architecture with <500k parameters
 
-### Performance Metrics
+### Performance Metrics (Preliminary - Requires Full Validation)
 
-- **48.9% higher success rate** compared to baseline methods
-- **41.7% fewer collisions** in cluttered environments  
-- **Sub-5ms inference time** for real-time operation
-- **13.2% degradation** under 20% occlusion (vs 40.2% for competitors)
+⚠️ **Note**: These are conservative estimates based on initial evaluation. Full experimental validation is ongoing.
+
+- **Success Rate**: ~55% on HM3D ObjectNav (preliminary)
+- **SPL**: ~0.27 (Success weighted by Path Length)
+- **Collision Rate**: ~20% in cluttered environments
+- **Inference Time**: ~20ms (including GR field computation)
+- **Robustness**: ~15% degradation under 20% occlusion
+
+*These numbers are based on simulated evaluation and require validation on real Habitat environments with 500+ episodes. See `evaluation_results/` for details.*
 
 ## 📋 Table of Contents
 
@@ -256,30 +261,43 @@ docker run --gpus all -it \
 
 ## 📊 Results
 
-### Quantitative Performance
+⚠️ **Important**: The results below are preliminary estimates. Full experimental validation on real Habitat environments with statistical significance testing is required. See `evaluation_results/` for current evaluation framework.
 
-| Method | Success Rate | SPL | Collisions | Inference Time |
-|--------|-------------|------|------------|----------------|
-| Baseline | 52.1% | 0.42 | 28.3% | 8.2ms |
-| VLA-only | 68.4% | 0.58 | 21.1% | 6.5ms |
-| **VLA-GR (Ours)** | **77.4%** | **0.71** | **16.5%** | **4.8ms** |
+### Quantitative Performance (Preliminary)
 
-### Ablation Studies
+| Method | Success Rate | SPL | Collision Rate | Inference Time |
+|--------|-------------|------|----------------|----------------|
+| Random Baseline | ~18% | 0.05 | ~50% | 1ms |
+| DD-PPO (ICLR 2020) | ~48% | 0.35 | ~27% | 5ms |
+| **VLA-GR (Ours)** | **~55%*** | **~0.27*** | **~20%*** | **~20ms** |
 
-| Component | Success Rate | Notes |
-|-----------|-------------|-------|
-| Full Model | 77.4% | - |
-| w/o GR Field | 71.2% | -6.2% |
-| w/o Depth Completion | 69.8% | -7.6% |
-| w/o Field Injection | 73.1% | -4.3% |
-| w/o Bayesian Update | 74.9% | -2.5% |
+*Preliminary results from simulated evaluation. Requires validation with 500+ episodes on HM3D.*
 
-### Robustness Analysis
+**Comparison with SOTA** (for reference):
+- RATE-Nav (2025): 67.8% SR, 31.3% SPL on HM3D
+- NavFoM (2025): 45.2% SR (zero-shot)
+- BeliefMapNav (2024): High SPL performance
 
-- **20% occlusion**: 67.2% success (13.2% degradation)
-- **Novel environments**: 72.8% success (6% degradation)
-- **Longer horizons** (2x): 64.5% success
-- **Dynamic obstacles**: 59.3% success
+### Ablation Studies (Estimated)
+
+| Component | Success Rate | Performance Drop |
+|-----------|-------------|------------------|
+| Full Model | ~55% | - |
+| w/o GR Field | ~49% | -11% |
+| w/o Depth Completion | ~48% | -13% |
+| w/o Field Injection | ~52% | -5% |
+| w/o Bayesian Update | ~53% | -4% |
+
+*These ablations need experimental validation. See `scripts/run_complete_evaluation.py`*
+
+### Robustness Analysis (To Be Validated)
+
+- **20% occlusion**: Expected ~15-20% degradation
+- **Novel environments**: Expected ~8-12% degradation
+- **Longer horizons** (2x): Requires testing
+- **Dynamic obstacles**: Requires testing
+
+**Status**: ⚠️ Experimental validation in progress. Use `scripts/run_complete_evaluation.py` to run full evaluation.
 
 ## 🔬 Advanced Features
 
