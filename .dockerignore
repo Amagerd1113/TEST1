@@ -1,0 +1,85 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+coverage.xml
+*.cover
+
+# Documentation
+docs/_build/
+*.md
+!README.md
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# Model checkpoints (use volumes instead)
+checkpoints/
+logs/
+outputs/
+wandb/
+mlruns/
+
+# Data (use volumes instead)
+data/
+datasets/
+*.tar.gz
+*.zip
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+Thumbs.db
+.DS_Store
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Misc
+*.bak
+*.tmp
+.cache/
