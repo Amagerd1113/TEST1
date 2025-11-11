@@ -27,6 +27,7 @@ VLA-GR is a cutting-edge robotic navigation framework that combines Vision-Langu
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Documentation](#documentation)
 - [Architecture](#architecture)
 - [Training](#training)
 - [Evaluation](#evaluation)
@@ -106,6 +107,22 @@ torchrun --nproc_per_node=4 src/training/train.py \
     --config config.yaml \
     hardware.distributed.enabled=true
 ```
+
+## 📚 Documentation
+
+Complete documentation is available in the [`docs/`](docs/) directory:
+
+- **[Documentation Index](docs/README.md)** - Complete documentation navigation
+- **[Project Overview](docs/PROJECT_OVERVIEW.md)** - Technical overview and architecture
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Installation, configuration, and deployment
+- **[API Usage Guide](docs/development/API_USAGE_GUIDE.md)** - External API usage
+- **[Bug Fixes History](docs/development/BUG_FIXES_HISTORY.md)** - Complete bug fix history
+
+### Technical Documentation
+
+- **[Theory](docs/technical/THEORY.md)** - Mathematical foundations and GR theory
+- **[Modules](docs/technical/MODULES.md)** - Detailed module implementations
+- **[Reference](docs/technical/REFERENCE.md)** - API reference and quick guides
 
 ## 🏗️ Architecture
 
