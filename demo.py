@@ -125,8 +125,9 @@ class VLAGRDemo:
 
         try:
             habitat_config = get_config(config_paths="configs/tasks/pointnav_gibson.yaml")
-        except:
+        except (FileNotFoundError, RuntimeError, Exception) as e:
             # Fallback: create basic config
+            logger.warning(f"Could not load config file: {e}")
             habitat_config = get_config()
 
         habitat_config.defrost()

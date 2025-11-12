@@ -130,8 +130,8 @@ class VLAGREvaluator:
         try:
             from habitat_baselines.agents import PPOAgent
             self.baselines['ppo'] = PPOAgent()
-        except:
-            logger.warning("PPO baseline not available")
+        except (ImportError, ModuleNotFoundError, Exception) as e:
+            logger.warning(f"PPO baseline not available: {e}")
             
         # Simple baselines
         self.baselines['random'] = RandomAgent()
@@ -141,21 +141,23 @@ class VLAGREvaluator:
     def evaluate_standard_benchmarks(
         self,
         num_episodes: int = 1000,
-        splits: List[str] = ["val", "test"]
+        splits: Optional[List[str]] = None
     ) -> Dict[str, EvaluationMetrics]:
         """
         Evaluate on standard navigation benchmarks.
-        
+
         Args:
             num_episodes: Number of episodes to evaluate
-            splits: Data splits to evaluate on
-            
+            splits: Data splits to evaluate on (default: ["val", "test"])
+
         Returns:
             Metrics for each split
         """
-        
+        if splits is None:
+            splits = ["val", "test"]
+
         all_metrics = {}
-        
+
         for split in splits:
             logger.info(f"Evaluating on {split} split with {num_episodes} episodes")
             

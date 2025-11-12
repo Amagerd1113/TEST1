@@ -661,7 +661,7 @@ class HabitatEnvV3(RLEnv):
                 )
                 observations["shortest_path_length"] = len(path)
                 observations["shortest_path_next_action"] = self.shortest_path_follower.get_next_action()
-            except:
+            except (RuntimeError, AttributeError, Exception) as e:
                 observations["shortest_path_length"] = -1
                 observations["shortest_path_next_action"] = 0
         else:

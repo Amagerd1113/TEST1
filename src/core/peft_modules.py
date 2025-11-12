@@ -313,7 +313,7 @@ class AdapterLayer(nn.Module):
 
 def apply_lora_to_model(
     model: nn.Module,
-    target_modules: List[str] = ["q_proj", "v_proj", "k_proj", "out_proj"],
+    target_modules: Optional[List[str]] = None,
     rank: int = 4,
     alpha: float = 1.0,
     dropout: float = 0.0,
@@ -323,7 +323,7 @@ def apply_lora_to_model(
 
     Args:
         model: Model to modify
-        target_modules: Names of modules to replace
+        target_modules: Names of modules to replace (default: ["q_proj", "v_proj", "k_proj", "out_proj"])
         rank: LoRA rank
         alpha: LoRA alpha scaling
         dropout: LoRA dropout
@@ -331,6 +331,9 @@ def apply_lora_to_model(
     Returns:
         Modified model
     """
+    if target_modules is None:
+        target_modules = ["q_proj", "v_proj", "k_proj", "out_proj"]
+
     for name, module in model.named_modules():
         if isinstance(module, nn.Linear):
             # Check if this is a target module
@@ -370,7 +373,7 @@ def apply_lora_to_model(
 
 def apply_oft_to_model(
     model: nn.Module,
-    target_modules: List[str] = ["q_proj", "v_proj", "k_proj", "out_proj"],
+    target_modules: Optional[List[str]] = None,
     rank: int = 4,
 ) -> nn.Module:
     """
@@ -378,12 +381,15 @@ def apply_oft_to_model(
 
     Args:
         model: Model to modify
-        target_modules: Names of modules to replace
+        target_modules: Names of modules to replace (default: ["q_proj", "v_proj", "k_proj", "out_proj"])
         rank: OFT block rank
 
     Returns:
         Modified model
     """
+    if target_modules is None:
+        target_modules = ["q_proj", "v_proj", "k_proj", "out_proj"]
+
     for name, module in model.named_modules():
         if isinstance(module, nn.Linear):
             # Check if this is a target module

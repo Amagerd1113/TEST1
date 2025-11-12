@@ -94,8 +94,9 @@ class HabitatNavigationDataset(Dataset):
         # Use get_config from habitat.config.default
         try:
             config = get_config(config_paths="configs/tasks/pointnav_gibson.yaml")
-        except:
+        except (FileNotFoundError, RuntimeError, Exception) as e:
             # Fallback: create basic config
+            logger.warning(f"Could not load config file: {e}")
             config = get_config()
         
         # Update with our config
