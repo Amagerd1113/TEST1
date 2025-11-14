@@ -14,7 +14,7 @@ VLA-GR is a cutting-edge robotic navigation framework that combines Vision-Langu
 - **Multimodal Perception**: Integrates RGB-D vision with natural language instructions
 - **Occlusion-Aware**: Advanced depth completion handles 20% pixel occlusion with 85% accuracy
 - **Field-Injected Attention**: Novel attention mechanism modulated by GR fields
-- **End-to-End Differentiable**: Fully trainable architecture with <500k parameters
+- **End-to-End Differentiable**: Fully trainable architecture (~85-95M trainable parameters with frozen backbones)
 
 ### Performance Metrics (Preliminary - Requires Full Validation)
 
