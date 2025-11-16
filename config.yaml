@@ -126,10 +126,25 @@ training:
 environment:
   # Habitat Configuration
   habitat:
-    scene_dataset: "hm3d"  # Options: hm3d, mp3d, gibson
-    split: "train"
+    scene_dataset: "hm3d"  # Options: hm3d, mp3d, gibson, replica
+    split: "minival"  # Options: train, val, minival, test
     max_episode_steps: 500
     success_distance: 0.2
+
+    # Data Paths (自动从环境变量读取，或使用默认值)
+    data_path: "${HABITAT_DATA_DIR:~/vla-gr-workspace/habitat-data}"
+    scenes_dir: "${HABITAT_DATA_DIR:~/vla-gr-workspace/habitat-data}/scene_datasets"
+
+    # Scene Dataset Specific Paths
+    hm3d:
+      minival_path: "${HABITAT_DATA_DIR:~/vla-gr-workspace/habitat-data}/scene_datasets/hm3d/minival"
+      val_path: "${HABITAT_DATA_DIR:~/vla-gr-workspace/habitat-data}/scene_datasets/hm3d/val"
+      train_path: "${HABITAT_DATA_DIR:~/vla-gr-workspace/habitat-data}/scene_datasets/hm3d/train"
+      semantic_annotations: true
+      use_semantic_sensor: true
+
+    replica:
+      path: "${HABITAT_DATA_DIR:~/vla-gr-workspace/habitat-data}/scene_datasets/replica"
     
   # Sensors
   sensors:
