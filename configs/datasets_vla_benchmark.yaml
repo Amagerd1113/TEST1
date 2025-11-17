@@ -1,0 +1,527 @@
+# VLA Benchmark Datasets Configuration
+# Based on ICLR 2025, ICML 2024, and latest VLA research standards
+# References: Open X-Embodiment, BridgeData, LIBERO, CALVIN, SIMPLER
+
+datasets:
+  # ========================================================================
+  # 1. Open X-Embodiment (OXE) Dataset
+  # ========================================================================
+  open_x_embodiment:
+    name: "Open X-Embodiment"
+    type: "real_robot"
+    enabled: true
+    description: "22 robot datasets from 21 institutions, 527 skills, 160k+ tasks"
+
+    # Data configuration
+    data_path: "data/open_x_embodiment"
+    split_ratio:
+      train: 0.8
+      val: 0.1
+      test: 0.1
+
+    # Task configuration
+    tasks:
+      - "pick_and_place"
+      - "push"
+      - "drawer_open"
+      - "drawer_close"
+      - "button_press"
+      - "door_open"
+      - "object_reorientation"
+      - "cloth_folding"
+      - "pouring"
+      - "assembly"
+
+    # Robot embodiments (subset of 22)
+    embodiments:
+      - "Franka Panda"
+      - "UR5"
+      - "xArm"
+      - "Google Robot"
+      - "Berkeley BLUE"
+      - "Fetch"
+
+    # Evaluation settings
+    evaluation:
+      num_episodes: 500
+      success_threshold: 0.05  # meters for manipulation
+      max_steps: 200
+      metrics:
+        - "success_rate"
+        - "average_return"
+        - "manipulation_accuracy"
+        - "grasp_success_rate"
+        - "task_completion_time"
+
+  # ========================================================================
+  # 2. BridgeData V2
+  # ========================================================================
+  bridge_data:
+    name: "BridgeData V2"
+    type: "real_robot"
+    enabled: true
+    description: "71 tasks across 10 environments, diverse manipulation scenarios"
+
+    data_path: "data/bridge_data_v2"
+    split_ratio:
+      train: 0.85
+      val: 0.1
+      test: 0.05
+
+    tasks:
+      # Object manipulation
+      - "pick_object"
+      - "place_object"
+      - "stack_blocks"
+      - "unstack_blocks"
+      - "insert_peg"
+
+      # Tool use
+      - "sweep_to_dustpan"
+      - "hang_mug"
+      - "pour_water"
+      - "screw_bulb"
+      - "flip_pot_upright"
+
+      # Multi-step tasks
+      - "open_drawer_pick_object"
+      - "place_in_drawer_close"
+      - "clear_table"
+
+    environments:
+      - "kitchen"
+      - "office"
+      - "workshop"
+      - "living_room"
+      - "laboratory"
+
+    evaluation:
+      num_episodes: 300
+      success_threshold: 0.03
+      max_steps: 150
+      metrics:
+        - "success_rate"
+        - "partial_completion_rate"
+        - "trajectory_efficiency"
+        - "action_smoothness"
+
+  # ========================================================================
+  # 3. LIBERO (Lifelong Benchmark for Robot Learning)
+  # ========================================================================
+  libero:
+    name: "LIBERO"
+    type: "simulation"
+    enabled: true
+    description: "Benchmark for lifelong robot learning with compositional tasks"
+
+    data_path: "data/libero"
+    simulator: "MuJoCo"
+
+    # Task suites
+    task_suites:
+      libero_spatial:
+        description: "Spatial reasoning tasks"
+        num_tasks: 10
+        examples:
+          - "pick_up_the_object_to_the_left"
+          - "place_object_in_front_of_target"
+          - "arrange_objects_in_line"
+
+      libero_object:
+        description: "Object-centric tasks"
+        num_tasks: 10
+        examples:
+          - "pick_up_red_cube"
+          - "stack_blue_blocks"
+          - "sort_objects_by_color"
+
+      libero_goal:
+        description: "Goal-conditioned tasks"
+        num_tasks: 10
+        examples:
+          - "achieve_specific_configuration"
+          - "reach_target_state"
+          - "rearrange_to_match_image"
+
+      libero_long_horizon:
+        description: "Long-horizon compositional tasks"
+        num_tasks: 10
+        examples:
+          - "prepare_meal_sequence"
+          - "multi_step_assembly"
+          - "sequential_object_placement"
+
+    evaluation:
+      num_episodes: 200
+      success_threshold: 0.05
+      max_steps: 300
+      metrics:
+        - "success_rate"
+        - "average_episode_length"
+        - "subtask_completion_rate"
+        - "transfer_success_rate"
+        - "zero_shot_performance"
+
+  # ========================================================================
+  # 4. CALVIN (Composing Actions from Language and Vision)
+  # ========================================================================
+  calvin:
+    name: "CALVIN"
+    type: "simulation"
+    enabled: true
+    description: "Long-horizon language-conditioned manipulation benchmark"
+
+    data_path: "data/calvin"
+    simulator: "PyBullet"
+
+    # Environments
+    environments:
+      - "calvin_scene_A"
+      - "calvin_scene_B"
+      - "calvin_scene_C"
+      - "calvin_scene_D"
+
+    # Task types
+    tasks:
+      single_task:
+        - "rotate_red_block_right"
+        - "push_blue_block_left"
+        - "lift_pink_block"
+        - "open_drawer"
+        - "close_drawer"
+
+      multi_task_chains:
+        chain_length: [2, 3, 4, 5]
+        examples:
+          - "rotate block then push it"
+          - "open drawer, pick object, place in drawer"
+          - "stack blocks then push stack"
+
+    evaluation:
+      num_episodes: 1000
+      metrics:
+        - "avg_sequence_length"  # Average number of tasks completed in sequence
+        - "success_rate_1"  # Success on 1 task
+        - "success_rate_2"  # Success on 2 tasks in a row
+        - "success_rate_3"  # Success on 3 tasks in a row
+        - "success_rate_4"  # Success on 4 tasks in a row
+        - "success_rate_5"  # Success on 5 tasks in a row
+
+  # ========================================================================
+  # 5. SIMPLER (Simulation Platform for Learning and Evaluation of Robots)
+  # ========================================================================
+  simpler:
+    name: "SIMPLER"
+    type: "simulation"
+    enabled: true
+    description: "Standardized simulation benchmark for robot manipulation"
+
+    data_path: "data/simpler"
+    simulator: "Isaac Sim"
+
+    tasks:
+      - "reach_target"
+      - "pick_and_place"
+      - "push_button"
+      - "open_drawer"
+      - "close_drawer"
+      - "pour_liquid"
+      - "screw_assembly"
+      - "peg_insertion"
+
+    difficulty_levels:
+      easy:
+        object_variations: 3
+        clutter: false
+        distractors: 0
+
+      medium:
+        object_variations: 10
+        clutter: true
+        distractors: 3
+
+      hard:
+        object_variations: 20
+        clutter: true
+        distractors: 7
+        partial_observability: true
+
+    evaluation:
+      num_episodes: 400
+      metrics:
+        - "success_rate"
+        - "efficiency_score"
+        - "robustness_score"
+        - "generalization_score"
+
+  # ========================================================================
+  # 6. Navigation Datasets (Extended)
+  # ========================================================================
+  navigation:
+    # Habitat Matterport 3D
+    hm3d:
+      name: "Habitat Matterport 3D"
+      type: "simulation"
+      enabled: true
+      data_path: "data/scene_datasets/hm3d"
+
+      tasks:
+        objectnav:
+          num_episodes: 1000
+          categories: ["chair", "table", "bed", "toilet", "tv", "couch", "plant"]
+
+        pointnav:
+          num_episodes: 1000
+          max_distance: 30.0
+
+        imagenav:
+          num_episodes: 500
+          description: "Navigate to location shown in goal image"
+
+        multi_object_nav:
+          num_episodes: 300
+          description: "Visit multiple objects in sequence"
+          sequence_length: [2, 3, 4]
+
+      evaluation:
+        metrics:
+          - "success_rate"
+          - "spl"
+          - "soft_spl"
+          - "distance_to_goal"
+          - "collision_rate"
+          - "path_efficiency"
+
+    # Matterport 3D
+    mp3d:
+      name: "Matterport 3D"
+      type: "simulation"
+      enabled: true
+      data_path: "data/scene_datasets/mp3d"
+      tasks: ["objectnav", "pointnav"]
+      num_episodes: 500
+
+    # Gibson
+    gibson:
+      name: "Gibson"
+      type: "simulation"
+      enabled: true
+      data_path: "data/scene_datasets/gibson"
+      tasks: ["pointnav"]
+      num_episodes: 500
+
+    # Replica
+    replica:
+      name: "Replica"
+      type: "simulation"
+      enabled: true
+      data_path: "data/scene_datasets/replica"
+      tasks: ["objectnav", "pointnav"]
+      num_episodes: 300
+
+  # ========================================================================
+  # 7. Language-Guided Navigation
+  # ========================================================================
+  language_navigation:
+    # Room-to-Room (R2R)
+    r2r:
+      name: "Room-to-Room"
+      type: "simulation"
+      enabled: true
+      data_path: "data/r2r"
+
+      splits:
+        train: 14039
+        val_seen: 1020
+        val_unseen: 2349
+        test: 4173
+
+      evaluation:
+        metrics:
+          - "success_rate"
+          - "oracle_success_rate"
+          - "spl"
+          - "navigation_error"
+          - "coverage_weighted_by_length"
+
+    # RxR (Multilingual)
+    rxr:
+      name: "RxR"
+      type: "simulation"
+      enabled: true
+      data_path: "data/rxr"
+      languages: ["en", "hi", "te"]
+      num_episodes: 500
+
+  # ========================================================================
+  # 8. Vision-Language Pretraining Datasets
+  # ========================================================================
+  pretraining:
+    # Conceptual Captions
+    cc3m:
+      name: "Conceptual Captions 3M"
+      type: "image_text"
+      enabled: true
+      data_path: "data/cc3m"
+      num_samples: 3000000
+      use_for: "vision_language_alignment"
+
+    # LAION
+    laion:
+      name: "LAION-400M"
+      type: "image_text"
+      enabled: false  # Optional, large dataset
+      data_path: "data/laion"
+      subset_size: 1000000
+      use_for: "vision_language_pretraining"
+
+    # Ego4D (for embodied understanding)
+    ego4d:
+      name: "Ego4D"
+      type: "egocentric_video"
+      enabled: true
+      data_path: "data/ego4d"
+      num_videos: 1000
+      use_for: "embodied_visual_learning"
+
+# ========================================================================
+# Evaluation Protocols
+# ========================================================================
+evaluation_protocols:
+  # Zero-shot evaluation
+  zero_shot:
+    description: "Evaluate on unseen tasks without fine-tuning"
+    datasets: ["libero", "calvin", "bridge_data"]
+    num_episodes_per_task: 50
+
+  # Few-shot evaluation
+  few_shot:
+    description: "Evaluate after few demonstrations"
+    datasets: ["libero", "calvin"]
+    num_demonstrations: [1, 5, 10]
+    num_episodes_per_task: 100
+
+  # Domain transfer
+  domain_transfer:
+    description: "Train on one dataset, test on another"
+    pairs:
+      - train: "hm3d"
+        test: "mp3d"
+      - train: "hm3d"
+        test: "gibson"
+      - train: "bridge_data"
+        test: "libero"
+
+  # Long-horizon evaluation
+  long_horizon:
+    description: "Evaluate on extended task sequences"
+    datasets: ["calvin", "libero_long_horizon"]
+    max_sequence_length: 10
+
+  # Robustness evaluation
+  robustness:
+    description: "Test robustness to perturbations"
+    perturbations:
+      visual:
+        - occlusion: [0.1, 0.2, 0.3, 0.4, 0.5]
+        - blur: [1, 2, 3, 4, 5]
+        - noise: [0.01, 0.05, 0.1, 0.2]
+
+      physical:
+        - object_mass_variation: [0.8, 0.9, 1.1, 1.2]
+        - friction_variation: [0.5, 0.7, 1.3, 1.5]
+        - dynamic_obstacles: true
+
+      sensor:
+        - depth_noise: [0.01, 0.05, 0.1]
+        - rgb_noise: [0.01, 0.05, 0.1]
+        - missing_frames: [0.05, 0.1, 0.2]
+
+# ========================================================================
+# Data Loading Configuration
+# ========================================================================
+data_loading:
+  # Batch configuration
+  batch_size:
+    train: 32
+    eval: 64
+
+  # Worker configuration
+  num_workers: 8
+  prefetch_factor: 2
+  pin_memory: true
+
+  # Mixing strategy for multi-dataset training
+  mixing_strategy:
+    type: "proportional"  # Options: uniform, proportional, curriculum
+    weights:
+      open_x_embodiment: 0.3
+      bridge_data: 0.2
+      libero: 0.15
+      calvin: 0.15
+      hm3d: 0.1
+      mp3d: 0.05
+      gibson: 0.05
+
+  # Curriculum learning
+  curriculum:
+    enabled: true
+    stages:
+      - stage: 1
+        name: "simple_tasks"
+        steps: 20000
+        datasets: ["simpler_easy", "libero_spatial"]
+
+      - stage: 2
+        name: "medium_tasks"
+        steps: 40000
+        datasets: ["simpler_medium", "libero_object", "bridge_data"]
+
+      - stage: 3
+        name: "hard_tasks"
+        steps: 60000
+        datasets: ["simpler_hard", "libero_long_horizon", "calvin"]
+
+# ========================================================================
+# Task-Specific Configurations
+# ========================================================================
+task_configurations:
+  manipulation:
+    action_space:
+      type: "continuous"
+      dim: 7  # 3D position + 4D quaternion or 3D position + 3D rotation + 1D gripper
+      bounds:
+        position: [-1.0, 1.0]
+        rotation: [-3.14159, 3.14159]
+        gripper: [0.0, 1.0]
+
+    observation_space:
+      rgb: [224, 224, 3]
+      depth: [224, 224, 1]
+      proprioception: 7  # Joint angles or end-effector pose
+      language: 256  # Token sequence length
+
+  navigation:
+    action_space:
+      type: "discrete"  # or continuous
+      actions: ["move_forward", "turn_left", "turn_right", "stop"]
+      # or continuous: [linear_velocity, angular_velocity]
+
+    observation_space:
+      rgb: [640, 480, 3]
+      depth: [640, 480, 1]
+      semantic: [640, 480, 1]
+      gps: 2
+      compass: 1
+      language: 256
+
+  mobile_manipulation:
+    action_space:
+      type: "continuous"
+      dim: 9  # 2D base velocity + 7D arm action
+
+    observation_space:
+      rgb: [640, 480, 3]
+      depth: [640, 480, 1]
+      proprioception: 9
+      language: 256

@@ -1,0 +1,615 @@
+# VLA Standard Evaluation Metrics
+# Based on latest VLA research (ICLR 2025, ICML 2024, arXiv 2024)
+# References: OpenVLA, GPT-4o, JAT evaluation protocols
+
+# ========================================================================
+# 1. ACTION PREDICTION METRICS
+# ========================================================================
+action_prediction_metrics:
+  # ------------------------------------------------------------------------
+  # Mean Squared Error (MSE) Family
+  # ------------------------------------------------------------------------
+  mse:
+    name: "Mean Squared Error"
+    description: "Average squared difference between predicted and actual actions"
+    formula: "mean((y_pred - y_true)^2)"
+    use_cases: ["continuous_actions", "manipulation"]
+
+    compute_per_dimension: true  # Compute MSE for each action dimension
+    aggregate_method: "mean"  # How to combine per-dimension MSEs
+
+    variants:
+      rmse:
+        name: "Root Mean Squared Error"
+        description: "Square root of MSE for interpretability"
+        formula: "sqrt(mean((y_pred - y_true)^2))"
+
+      mse_position:
+        name: "Position MSE"
+        description: "MSE for 3D position components only"
+        dimensions: [0, 1, 2]
+
+      mse_rotation:
+        name: "Rotation MSE"
+        description: "MSE for rotation/orientation components"
+        dimensions: [3, 4, 5, 6]
+
+      mse_gripper:
+        name: "Gripper MSE"
+        description: "MSE for gripper state"
+        dimensions: [7]
+
+  amse:
+    name: "Average Mean Squared Error"
+    description: "MSE averaged across trajectories (VLA benchmark standard)"
+    formula: "mean over trajectories of (mean((y_pred - y_true)^2))"
+    use_cases: ["trajectory_evaluation", "episode_comparison"]
+
+    # Following arXiv 2411.05821 protocol
+    compute_method: "per_trajectory_then_average"
+    report_std: true  # Report standard deviation across trajectories
+    report_confidence_interval: true
+    confidence_level: 0.95
+
+  namse:
+    name: "Normalized Average Mean Squared Error"
+    description: "AMSE normalized to action prediction range"
+    formula: "AMSE / (max(y_pred) - min(y_pred))^2"
+    use_cases: ["cross_model_comparison", "action_space_invariant"]
+
+    normalization_method: "prediction_range"  # or "ground_truth_range", "action_space_range"
+    per_dimension_normalization: true
+    clip_outliers: true
+    outlier_percentile: 99
+
+  # ------------------------------------------------------------------------
+  # Action Accuracy Metrics
+  # ------------------------------------------------------------------------
+  action_accuracy:
+    name: "Action Accuracy"
+    description: "Percentage of correct actions (for discrete action spaces)"
+    use_cases: ["discrete_actions", "navigation"]
+
+    variants:
+      top_1_accuracy:
+        name: "Top-1 Accuracy"
+        description: "Exact match with ground truth action"
+
+      top_3_accuracy:
+        name: "Top-3 Accuracy"
+        description: "Ground truth in top 3 predictions"
+
+      top_5_accuracy:
+        name: "Top-5 Accuracy"
+        description: "Ground truth in top 5 predictions"
+
+  action_distance:
+    name: "Action Distance"
+    description: "Distance between predicted and actual actions"
+
+    distance_metrics:
+      l1_distance:
+        formula: "sum(abs(y_pred - y_true))"
+
+      l2_distance:
+        formula: "sqrt(sum((y_pred - y_true)^2))"
+
+      cosine_distance:
+        formula: "1 - (y_pred · y_true) / (|y_pred| * |y_true|)"
+
+      geodesic_distance:
+        description: "For rotation actions (SO(3) manifold)"
+        use_quaternions: true
+
+# ========================================================================
+# 2. TASK COMPLETION METRICS
+# ========================================================================
+task_completion_metrics:
+  # ------------------------------------------------------------------------
+  # Success Metrics
+  # ------------------------------------------------------------------------
+  success_rate:
+    name: "Success Rate"
+    description: "Percentage of episodes that achieve the goal"
+    formula: "num_successful_episodes / total_episodes"
+
+    report_variants:
+      - "overall_success_rate"
+      - "per_task_success_rate"
+      - "per_object_success_rate"
+      - "per_environment_success_rate"
+
+    confidence_intervals: true
+    bootstrap_samples: 1000
+
+  completion_rate:
+    name: "Completion Rate"
+    description: "Percentage of task completion (VLA standard metric)"
+    formula: "num_completed_tasks / total_tasks"
+
+    # For multi-step tasks
+    partial_completion: true
+    weight_by_difficulty: false
+
+    variants:
+      binary_completion:
+        description: "All-or-nothing task completion"
+
+      partial_completion:
+        description: "Credit for partially completed tasks"
+        formula: "num_completed_subtasks / total_subtasks"
+
+      weighted_completion:
+        description: "Weighted by task difficulty"
+        difficulty_weights: "from_task_config"
+
+  # ------------------------------------------------------------------------
+  # Sequence Metrics (for multi-step tasks)
+  # ------------------------------------------------------------------------
+  sequence_metrics:
+    avg_sequence_length:
+      name: "Average Sequence Length"
+      description: "Average number of tasks completed in sequence"
+      use_cases: ["CALVIN_benchmark", "long_horizon_tasks"]
+
+      compute_method: "count_until_failure"
+      report_distribution: true
+
+    success_rate_by_length:
+      name: "Success Rate by Sequence Length"
+      description: "Success rate for sequences of length 1, 2, 3, 4, 5+"
+
+      sequence_lengths: [1, 2, 3, 4, 5]
+
+      # CALVIN-style reporting
+      report_format:
+        - "SR_1": "Success on 1 task"
+        - "SR_2": "Success on 2 consecutive tasks"
+        - "SR_3": "Success on 3 consecutive tasks"
+        - "SR_4": "Success on 4 consecutive tasks"
+        - "SR_5": "Success on 5 consecutive tasks"
+
+    task_chain_completion:
+      name: "Task Chain Completion"
+      description: "Completion of entire task chains"
+
+      metrics:
+        - "full_chain_success"
+        - "average_chain_progress"
+        - "bottleneck_tasks"  # Tasks that most often fail
+
+# ========================================================================
+# 3. EFFICIENCY METRICS
+# ========================================================================
+efficiency_metrics:
+  # ------------------------------------------------------------------------
+  # Path/Trajectory Efficiency
+  # ------------------------------------------------------------------------
+  spl:
+    name: "Success weighted by Path Length (SPL)"
+    description: "Success rate weighted by path efficiency"
+    formula: "mean(success_i * (shortest_path_i / actual_path_i))"
+    use_cases: ["navigation", "mobile_manipulation"]
+
+    clip_ratio: true
+    max_ratio: 1.0
+
+  soft_spl:
+    name: "Soft SPL"
+    description: "SPL with continuous success based on distance to goal"
+    formula: "mean(soft_success_i * (shortest_path_i / actual_path_i))"
+
+    soft_success_function: "exponential_decay"
+    decay_rate: 2.0
+
+  path_efficiency:
+    name: "Path Efficiency"
+    description: "Ratio of optimal path length to actual path length"
+    formula: "optimal_path_length / actual_path_length"
+
+    compute_optimal_path: "dijkstra"  # or "a_star", "oracle"
+
+  # ------------------------------------------------------------------------
+  # Time Efficiency
+  # ------------------------------------------------------------------------
+  task_completion_time:
+    name: "Task Completion Time"
+    description: "Time taken to complete task"
+
+    report_metrics:
+      - "mean_completion_time"
+      - "median_completion_time"
+      - "std_completion_time"
+      - "completion_time_percentiles": [25, 50, 75, 90, 95]
+
+  steps_to_success:
+    name: "Steps to Success"
+    description: "Number of steps/actions needed to complete task"
+
+    normalized_by_optimal: true
+
+  # ------------------------------------------------------------------------
+  # Action Efficiency
+  # ------------------------------------------------------------------------
+  action_smoothness:
+    name: "Action Smoothness"
+    description: "Smoothness of action sequences"
+    formula: "mean(abs(action_t - action_{t-1}))"
+
+    variants:
+      velocity_smoothness:
+        formula: "mean(abs(velocity_t - velocity_{t-1}))"
+
+      acceleration_smoothness:
+        formula: "mean(abs(acceleration_t))"
+
+      jerk_metric:
+        description: "Rate of change of acceleration"
+        formula: "mean(abs(jerk_t))"
+
+  action_entropy:
+    name: "Action Entropy"
+    description: "Diversity of actions taken"
+    formula: "-sum(p(a) * log(p(a)))"
+
+    use_cases: ["exploration", "policy_diversity"]
+
+# ========================================================================
+# 4. SAFETY AND ROBUSTNESS METRICS
+# ========================================================================
+safety_metrics:
+  collision_rate:
+    name: "Collision Rate"
+    description: "Frequency of collisions with obstacles"
+    formula: "num_collisions / total_steps"
+
+    collision_types:
+      - "wall_collision"
+      - "object_collision"
+      - "self_collision"
+      - "human_collision"
+
+  safety_violations:
+    name: "Safety Violations"
+    description: "Number of safety constraint violations"
+
+    violation_types:
+      - "force_limit_exceeded"
+      - "velocity_limit_exceeded"
+      - "workspace_boundary_violated"
+      - "forbidden_zone_entered"
+      - "object_dropped"
+
+  near_miss_count:
+    name: "Near Miss Count"
+    description: "Number of near-collision events"
+
+    distance_threshold: 0.1  # meters
+
+robustness_metrics:
+  # ------------------------------------------------------------------------
+  # Generalization
+  # ------------------------------------------------------------------------
+  zero_shot_performance:
+    name: "Zero-Shot Performance"
+    description: "Performance on unseen tasks/objects/environments"
+
+    test_conditions:
+      - "novel_objects"
+      - "novel_environments"
+      - "novel_tasks"
+      - "domain_transfer"
+
+    metrics:
+      - "zero_shot_success_rate"
+      - "generalization_gap": "train_performance - test_performance"
+
+  few_shot_performance:
+    name: "Few-Shot Performance"
+    description: "Performance after few demonstrations"
+
+    num_demonstrations: [1, 3, 5, 10]
+
+    metrics:
+      - "few_shot_success_rate"
+      - "learning_efficiency"
+      - "sample_efficiency"
+
+  # ------------------------------------------------------------------------
+  # Perturbation Robustness
+  # ------------------------------------------------------------------------
+  occlusion_robustness:
+    name: "Occlusion Robustness"
+    description: "Performance under visual occlusion"
+
+    occlusion_levels: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+
+    metrics:
+      - "performance_vs_occlusion_curve"
+      - "critical_occlusion_threshold"
+      - "robustness_score": "area_under_curve"
+
+  noise_robustness:
+    name: "Noise Robustness"
+    description: "Performance under sensor noise"
+
+    noise_types:
+      - "gaussian_noise"
+      - "salt_pepper_noise"
+      - "motion_blur"
+      - "depth_noise"
+
+    noise_levels: [0.0, 0.01, 0.05, 0.1, 0.2]
+
+  domain_robustness:
+    name: "Domain Robustness"
+    description: "Performance across different domains"
+
+    domain_shifts:
+      - "lighting_variation"
+      - "texture_variation"
+      - "object_variation"
+      - "layout_variation"
+
+# ========================================================================
+# 5. LEARNING METRICS
+# ========================================================================
+learning_metrics:
+  sample_efficiency:
+    name: "Sample Efficiency"
+    description: "Performance vs number of training samples"
+
+    metrics:
+      - "data_efficiency_curve"
+      - "samples_to_threshold_performance"
+      - "area_under_learning_curve"
+
+  training_stability:
+    name: "Training Stability"
+    description: "Stability of training process"
+
+    metrics:
+      - "loss_variance"
+      - "gradient_variance"
+      - "performance_variance"
+      - "convergence_speed"
+
+  transfer_efficiency:
+    name: "Transfer Efficiency"
+    description: "Efficiency of transfer to new tasks"
+
+    metrics:
+      - "forward_transfer"
+      - "backward_transfer"
+      - "catastrophic_forgetting"
+
+# ========================================================================
+# 6. MANIPULATION-SPECIFIC METRICS
+# ========================================================================
+manipulation_metrics:
+  grasp_success_rate:
+    name: "Grasp Success Rate"
+    description: "Percentage of successful grasps"
+
+    success_criteria:
+      - "object_lifted"
+      - "stable_grasp"
+      - "maintained_for_duration": 30  # frames
+
+  placement_accuracy:
+    name: "Placement Accuracy"
+    description: "Accuracy of object placement"
+
+    metrics:
+      - "position_error": "l2_distance"
+      - "orientation_error": "geodesic_distance"
+      - "within_threshold_rate"
+
+  manipulation_accuracy:
+    name: "Manipulation Accuracy"
+    description: "Overall manipulation precision"
+
+    components:
+      - "reaching_accuracy"
+      - "grasping_accuracy"
+      - "transport_accuracy"
+      - "placement_accuracy"
+
+  force_control_accuracy:
+    name: "Force Control Accuracy"
+    description: "Accuracy of force application"
+
+    metrics:
+      - "force_error": "abs(applied_force - target_force)"
+      - "force_overshoot_rate"
+      - "contact_stability"
+
+# ========================================================================
+# 7. NAVIGATION-SPECIFIC METRICS
+# ========================================================================
+navigation_metrics:
+  distance_to_goal:
+    name: "Distance to Goal"
+    description: "Final distance to goal location"
+
+    report_metrics:
+      - "mean_distance"
+      - "median_distance"
+      - "success_threshold_rate"
+
+  navigation_error:
+    name: "Navigation Error"
+    description: "Cumulative navigation error"
+
+    error_types:
+      - "position_error"
+      - "orientation_error"
+      - "path_deviation"
+
+  exploration_efficiency:
+    name: "Exploration Efficiency"
+    description: "Efficiency of environment exploration"
+
+    metrics:
+      - "coverage_rate"
+      - "redundant_exploration_ratio"
+      - "frontier_exploration_ratio"
+
+  map_quality:
+    name: "Map Quality"
+    description: "Quality of built environment map"
+
+    metrics:
+      - "map_accuracy"
+      - "map_completeness"
+      - "map_consistency"
+
+# ========================================================================
+# 8. VISION-LANGUAGE METRICS
+# ========================================================================
+vision_language_metrics:
+  instruction_following_accuracy:
+    name: "Instruction Following Accuracy"
+    description: "Accuracy of following language instructions"
+
+    metrics:
+      - "exact_match_rate"
+      - "partial_match_rate"
+      - "semantic_similarity"
+
+  language_grounding_accuracy:
+    name: "Language Grounding Accuracy"
+    description: "Accuracy of grounding language to visual concepts"
+
+    metrics:
+      - "object_reference_accuracy"
+      - "spatial_relation_accuracy"
+      - "attribute_recognition_accuracy"
+
+  goal_understanding:
+    name: "Goal Understanding"
+    description: "Understanding of task goals from language"
+
+    metrics:
+      - "goal_identification_accuracy"
+      - "subgoal_identification_accuracy"
+
+# ========================================================================
+# 9. COMPOSITE METRICS
+# ========================================================================
+composite_metrics:
+  overall_performance_score:
+    name: "Overall Performance Score"
+    description: "Weighted combination of multiple metrics"
+
+    components:
+      success_rate: 0.4
+      efficiency: 0.3
+      safety: 0.2
+      robustness: 0.1
+
+    aggregation: "weighted_sum"
+
+  vla_benchmark_score:
+    name: "VLA Benchmark Score"
+    description: "Standard VLA benchmark composite score"
+
+    # Following VLA research standards
+    components:
+      task_completion: 0.35
+      action_accuracy: 0.25
+      efficiency: 0.20
+      generalization: 0.15
+      robustness: 0.05
+
+# ========================================================================
+# 10. REPORTING CONFIGURATION
+# ========================================================================
+reporting:
+  # Which metrics to compute by default
+  default_metrics:
+    manipulation:
+      - "success_rate"
+      - "completion_rate"
+      - "mse"
+      - "amse"
+      - "namse"
+      - "grasp_success_rate"
+      - "placement_accuracy"
+      - "task_completion_time"
+
+    navigation:
+      - "success_rate"
+      - "spl"
+      - "soft_spl"
+      - "collision_rate"
+      - "distance_to_goal"
+      - "path_efficiency"
+
+    multi_step:
+      - "success_rate"
+      - "completion_rate"
+      - "avg_sequence_length"
+      - "sequence_success_rates"
+      - "task_chain_completion"
+
+    all_tasks:
+      - "success_rate"
+      - "completion_rate"
+      - "overall_performance_score"
+
+  # Statistical analysis
+  statistical_analysis:
+    confidence_intervals: true
+    confidence_level: 0.95
+    bootstrap_samples: 1000
+
+    significance_testing:
+      enabled: true
+      test_type: "t_test"  # or "wilcoxon", "mann_whitney"
+      significance_level: 0.05
+
+  # Visualization
+  visualization:
+    enabled: true
+
+    plot_types:
+      - "success_rate_comparison"
+      - "metric_radar_chart"
+      - "learning_curves"
+      - "robustness_curves"
+      - "per_task_breakdown"
+      - "error_analysis"
+
+  # Export formats
+  export_formats:
+    - "json"
+    - "csv"
+    - "latex_table"
+    - "wandb"
+    - "tensorboard"
+
+# ========================================================================
+# 11. COMPARISON WITH BASELINES
+# ========================================================================
+baseline_comparison:
+  # Standard baselines to compare against
+  baselines:
+    - "random_agent"
+    - "oracle_shortest_path"
+    - "dd_ppo"
+    - "openvla"
+    - "gpt4o"
+    - "jat"
+
+  # Metrics for comparison
+  comparison_metrics:
+    - "success_rate_improvement"
+    - "efficiency_gain"
+    - "statistical_significance"
+    - "relative_improvement_percentage"
+
+  # Reporting
+  generate_comparison_table: true
+  highlight_best: true
+  include_confidence_intervals: true

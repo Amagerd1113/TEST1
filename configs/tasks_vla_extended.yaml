@@ -1,0 +1,691 @@
+# Extended VLA Task Definitions
+# Based on ICLR 2025, ICML 2024 standards and latest VLA research
+# Includes: Manipulation, Navigation, Mobile Manipulation, Multi-step Planning
+
+# ========================================================================
+# 1. MANIPULATION TASKS
+# ========================================================================
+manipulation_tasks:
+  # ------------------------------------------------------------------------
+  # Basic Manipulation
+  # ------------------------------------------------------------------------
+  pick_and_place:
+    name: "Pick and Place"
+    description: "Pick up an object and place it at a target location"
+    difficulty: "easy"
+
+    action_space:
+      type: "continuous"
+      dim: 8  # [x, y, z, qx, qy, qz, qw, gripper]
+      bounds:
+        position: [-0.5, 0.5]
+        rotation: [-1.0, 1.0]
+        gripper: [0.0, 1.0]
+
+    observation_space:
+      rgb: [224, 224, 3]
+      depth: [224, 224, 1]
+      proprioception: 7
+      language: true
+
+    success_criteria:
+      distance_threshold: 0.05  # 5cm
+      orientation_threshold: 0.2  # radians
+      stable_frames: 10
+
+    evaluation:
+      num_episodes: 200
+      max_steps: 150
+      metrics:
+        - "success_rate"
+        - "grasp_success_rate"
+        - "placement_accuracy"
+        - "task_completion_time"
+        - "action_smoothness"
+
+  push_object:
+    name: "Push Object"
+    description: "Push an object to a target location"
+    difficulty: "easy"
+
+    success_criteria:
+      distance_threshold: 0.1
+      contact_required: true
+
+    evaluation:
+      num_episodes: 200
+      max_steps: 100
+
+  stack_blocks:
+    name: "Stack Blocks"
+    description: "Stack multiple blocks in a tower"
+    difficulty: "medium"
+
+    task_variants:
+      num_blocks: [2, 3, 4, 5]
+      block_sizes: ["uniform", "varied"]
+      stability_required: true
+
+    success_criteria:
+      stack_height_threshold: 0.9  # 90% of ideal height
+      stability_time: 30  # frames
+      alignment_threshold: 0.02  # 2cm
+
+    evaluation:
+      num_episodes: 300
+      max_steps: 250
+      metrics:
+        - "success_rate"
+        - "average_stack_height"
+        - "stability_score"
+        - "grasp_diversity"
+
+  # ------------------------------------------------------------------------
+  # Tool Use Tasks
+  # ------------------------------------------------------------------------
+  drawer_manipulation:
+    name: "Drawer Open/Close"
+    description: "Open and close drawers with handles"
+    difficulty: "medium"
+
+    variants:
+      - "open_drawer"
+      - "close_drawer"
+      - "open_then_pick_object"
+      - "place_in_drawer_then_close"
+
+    success_criteria:
+      opening_threshold: 0.8  # 80% open
+      closing_threshold: 0.1  # 10% open (nearly closed)
+
+    evaluation:
+      num_episodes: 250
+      max_steps: 200
+
+  button_press:
+    name: "Button Press"
+    description: "Press buttons with specified force"
+    difficulty: "medium"
+
+    task_variants:
+      button_types: ["large", "small", "sequence"]
+      force_requirements: [0.5, 1.0, 2.0]  # Newtons
+
+    success_criteria:
+      activation_detected: true
+      force_range: [0.8, 1.2]  # relative to requirement
+
+  pour_liquid:
+    name: "Pour Liquid"
+    description: "Pour liquid from one container to another"
+    difficulty: "hard"
+
+    success_criteria:
+      target_volume_range: [0.9, 1.1]
+      spill_tolerance: 0.1
+      pour_smoothness_threshold: 0.8
+
+    evaluation:
+      num_episodes: 200
+      max_steps: 300
+      metrics:
+        - "success_rate"
+        - "volume_accuracy"
+        - "spill_rate"
+        - "motion_smoothness"
+
+  # ------------------------------------------------------------------------
+  # Dexterous Manipulation
+  # ------------------------------------------------------------------------
+  peg_insertion:
+    name: "Peg Insertion"
+    description: "Insert a peg into a hole with tight tolerance"
+    difficulty: "hard"
+
+    task_variants:
+      clearance: [0.5, 1.0, 2.0]  # mm
+      peg_shapes: ["circular", "square", "hexagonal"]
+      hole_orientations: ["aligned", "random"]
+
+    success_criteria:
+      insertion_depth: 0.95
+      force_limit: 50.0  # Newtons
+      no_jamming: true
+
+    evaluation:
+      num_episodes: 300
+      max_steps: 400
+
+  assembly:
+    name: "Assembly Task"
+    description: "Assemble multiple parts together"
+    difficulty: "hard"
+
+    task_variants:
+      - "lego_assembly"
+      - "furniture_assembly"
+      - "connector_assembly"
+
+    num_parts: [2, 3, 4, 5]
+
+    success_criteria:
+      all_parts_connected: true
+      alignment_accuracy: 0.01  # 1cm
+      structural_integrity: true
+
+# ========================================================================
+# 2. NAVIGATION TASKS (Extended)
+# ========================================================================
+navigation_tasks:
+  # ------------------------------------------------------------------------
+  # Object Goal Navigation
+  # ------------------------------------------------------------------------
+  objectnav:
+    name: "Object Goal Navigation"
+    description: "Navigate to a specific object category"
+    difficulty: "medium"
+
+    task_variants:
+      single_object:
+        categories: ["chair", "table", "bed", "toilet", "tv", "couch", "plant",
+                     "refrigerator", "sink", "microwave"]
+
+      multi_object_sequence:
+        description: "Visit multiple objects in sequence"
+        sequence_length: [2, 3, 4, 5]
+        order_matters: true
+
+      object_with_attributes:
+        description: "Find object with specific attributes"
+        examples:
+          - "find the red chair"
+          - "navigate to the large table"
+          - "find the broken TV"
+
+    action_space:
+      type: "discrete"
+      actions: ["move_forward", "turn_left", "turn_right", "stop"]
+      # Alternative continuous: [linear_vel, angular_vel]
+
+    observation_space:
+      rgb: [640, 480, 3]
+      depth: [640, 480, 1]
+      semantic: [640, 480, 1]
+      gps: 2
+      compass: 1
+
+    success_criteria:
+      distance_threshold: 0.2  # 20cm
+      view_angle: 15  # degrees
+      min_visible_pixels: 100
+
+    evaluation:
+      num_episodes: 1000
+      max_steps: 500
+      metrics:
+        - "success_rate"
+        - "spl"  # Success weighted by Path Length
+        - "soft_spl"
+        - "distance_to_goal"
+        - "collision_rate"
+        - "path_efficiency"
+        - "exploration_efficiency"
+
+  # ------------------------------------------------------------------------
+  # Point Goal Navigation
+  # ------------------------------------------------------------------------
+  pointnav:
+    name: "Point Goal Navigation"
+    description: "Navigate to a coordinate specified in polar coordinates"
+    difficulty: "easy"
+
+    goal_specification:
+      type: "polar"  # (distance, angle) relative to start
+      distance_range: [3.0, 30.0]  # meters
+      angle_range: [-180, 180]  # degrees
+
+    success_criteria:
+      distance_threshold: 0.2
+
+    evaluation:
+      num_episodes: 1000
+      max_steps: 500
+
+  # ------------------------------------------------------------------------
+  # Vision-Language Navigation
+  # ------------------------------------------------------------------------
+  vln:
+    name: "Vision-Language Navigation"
+    description: "Navigate following natural language instructions"
+    difficulty: "hard"
+
+    instruction_types:
+      - "turn-by-turn"
+      - "high-level"
+      - "landmark-based"
+
+    example_instructions:
+      - "Walk down the hallway and turn right at the painting"
+      - "Go to the kitchen through the living room"
+      - "Find the bedroom with blue walls"
+
+    evaluation:
+      num_episodes: 500
+      max_steps: 1000
+      metrics:
+        - "success_rate"
+        - "oracle_success_rate"
+        - "spl"
+        - "coverage_weighted_by_length"
+        - "navigation_error"
+        - "instruction_following_accuracy"
+
+  # ------------------------------------------------------------------------
+  # Image Goal Navigation
+  # ------------------------------------------------------------------------
+  imagenav:
+    name: "Image Goal Navigation"
+    description: "Navigate to location shown in goal image"
+    difficulty: "medium"
+
+    goal_image_types:
+      - "same_environment"  # Image from same scene
+      - "cross_scene"  # Image from different scene instance
+      - "semantic_match"  # Similar looking location
+
+    success_criteria:
+      distance_threshold: 0.25
+      view_similarity_threshold: 0.7  # cosine similarity
+
+    evaluation:
+      num_episodes: 500
+      max_steps: 500
+
+  # ------------------------------------------------------------------------
+  # Advanced Navigation
+  # ------------------------------------------------------------------------
+  social_navigation:
+    name: "Social Navigation"
+    description: "Navigate in environments with people"
+    difficulty: "hard"
+
+    constraints:
+      min_distance_to_people: 1.0  # meters
+      comfort_zone_violation_penalty: -10.0
+      blocking_penalty: -5.0
+
+    evaluation:
+      num_episodes: 300
+      metrics:
+        - "success_rate"
+        - "spl"
+        - "social_compliance_score"
+        - "comfort_violations"
+        - "path_naturalness"
+
+  dynamic_obstacle_nav:
+    name: "Dynamic Obstacle Navigation"
+    description: "Navigate with moving obstacles"
+    difficulty: "hard"
+
+    obstacle_types:
+      - "random_walkers"
+      - "goal_directed_agents"
+      - "moving_objects"
+
+    num_obstacles: [1, 3, 5, 10]
+
+    evaluation:
+      num_episodes: 400
+      metrics:
+        - "success_rate"
+        - "spl"
+        - "collision_rate"
+        - "near_miss_count"
+        - "reactive_planning_quality"
+
+# ========================================================================
+# 3. MOBILE MANIPULATION TASKS
+# ========================================================================
+mobile_manipulation_tasks:
+  fetch_object:
+    name: "Fetch Object"
+    description: "Navigate to and retrieve an object"
+    difficulty: "hard"
+
+    phases:
+      - "navigate_to_object"
+      - "manipulate_object"
+      - "navigate_to_delivery"
+      - "place_object"
+
+    action_space:
+      type: "continuous"
+      dim: 9  # [base_linear_vel, base_angular_vel, arm_joints(7)]
+
+    success_criteria:
+      all_phases_complete: true
+      object_delivered: true
+      time_limit: 300  # seconds
+
+    evaluation:
+      num_episodes: 250
+      max_steps: 1000
+      metrics:
+        - "success_rate"
+        - "average_episode_length"
+        - "phase_completion_rates"
+        - "coordination_efficiency"
+
+  rearrangement:
+    name: "Object Rearrangement"
+    description: "Rearrange objects to match target configuration"
+    difficulty: "hard"
+
+    task_variants:
+      - "tidy_room"
+      - "set_table"
+      - "organize_shelf"
+
+    num_objects: [2, 4, 6, 8]
+
+    success_criteria:
+      placement_accuracy: 0.1  # 10cm
+      all_objects_placed: true
+
+    evaluation:
+      num_episodes: 200
+      max_steps: 2000
+
+  open_fridge_get_object:
+    name: "Open Fridge and Get Object"
+    description: "Open refrigerator, retrieve object, close fridge"
+    difficulty: "very_hard"
+
+    phases:
+      - "navigate_to_fridge"
+      - "open_fridge_door"
+      - "reach_into_fridge"
+      - "grasp_target_object"
+      - "retract_arm"
+      - "close_fridge_door"
+      - "navigate_away"
+
+    evaluation:
+      num_episodes: 100
+      max_steps: 1500
+
+# ========================================================================
+# 4. MULTI-STEP PLANNING TASKS
+# ========================================================================
+multi_step_tasks:
+  # ------------------------------------------------------------------------
+  # Sequential Tasks
+  # ------------------------------------------------------------------------
+  task_chain:
+    name: "Task Chain Execution"
+    description: "Execute a sequence of tasks"
+    difficulty: "very_hard"
+
+    chain_types:
+      short_chain:
+        length: 2
+        example: "pick red block then place on blue block"
+
+      medium_chain:
+        length: 3
+        example: "open drawer, pick object, close drawer"
+
+      long_chain:
+        length: 5
+        example: "navigate to kitchen, open cabinet, pick mug, navigate to table, place mug on table"
+
+    success_criteria:
+      all_subtasks_complete: true
+      correct_order: true
+      no_failures: true
+
+    evaluation:
+      num_episodes: 500
+      max_steps: 2000
+      metrics:
+        - "full_sequence_success_rate"
+        - "average_sequence_length_completed"
+        - "per_task_success_rates"
+        - "error_recovery_rate"
+
+  # ------------------------------------------------------------------------
+  # Hierarchical Tasks
+  # ------------------------------------------------------------------------
+  prepare_meal:
+    name: "Prepare Meal"
+    description: "Multi-step meal preparation task"
+    difficulty: "very_hard"
+
+    subtasks:
+      - "fetch_ingredients"
+      - "place_on_counter"
+      - "open_containers"
+      - "pour_into_bowl"
+      - "mix_ingredients"
+      - "clean_up"
+
+    evaluation:
+      num_episodes: 50
+      max_steps: 3000
+      metrics:
+        - "task_completion_rate"
+        - "subtask_completion_rates"
+        - "execution_efficiency"
+        - "error_handling"
+
+  # ------------------------------------------------------------------------
+  # Goal-Conditioned Tasks
+  # ------------------------------------------------------------------------
+  goal_image_rearrangement:
+    name: "Goal Image Rearrangement"
+    description: "Rearrange scene to match goal image"
+    difficulty: "very_hard"
+
+    task_specification:
+      input: "current_scene_image + goal_scene_image"
+      output: "action_sequence"
+
+    num_objects: [3, 5, 7]
+    num_moves_required: [2, 4, 6, 8]
+
+    success_criteria:
+      scene_similarity_threshold: 0.9
+      object_position_accuracy: 0.05  # 5cm
+
+    evaluation:
+      num_episodes: 200
+      max_steps: 1000
+
+  # ------------------------------------------------------------------------
+  # Long-Horizon Compositional Tasks
+  # ------------------------------------------------------------------------
+  calvin_style_tasks:
+    name: "CALVIN-style Long-Horizon Tasks"
+    description: "Sequences of compositional manipulation tasks"
+    difficulty: "very_hard"
+
+    # Following CALVIN benchmark protocol
+    task_sequences:
+      length_1: 34  # Single task
+      length_2: 34  # Two tasks in sequence
+      length_3: 34  # Three tasks
+      length_4: 34  # Four tasks
+      length_5: 34  # Five tasks
+
+    base_tasks:
+      - "rotate_red_block_right"
+      - "rotate_red_block_left"
+      - "push_red_block_right"
+      - "push_red_block_left"
+      - "lift_red_block"
+      - "rotate_blue_block_right"
+      - "rotate_blue_block_left"
+      - "push_blue_block_right"
+      - "push_blue_block_left"
+      - "lift_blue_block"
+      - "rotate_pink_block_right"
+      - "rotate_pink_block_left"
+      - "push_pink_block_right"
+      - "push_pink_block_left"
+      - "lift_pink_block"
+      - "open_drawer"
+      - "close_drawer"
+      - "turn_on_lightbulb"
+      - "turn_off_lightbulb"
+      - "turn_on_led"
+      - "turn_off_led"
+
+    evaluation:
+      metrics:
+        - "avg_sequence_length"
+        - "success_rate_1_task"
+        - "success_rate_2_tasks"
+        - "success_rate_3_tasks"
+        - "success_rate_4_tasks"
+        - "success_rate_5_tasks"
+
+# ========================================================================
+# 5. ZERO-SHOT AND FEW-SHOT TASKS
+# ========================================================================
+transfer_learning_tasks:
+  # ------------------------------------------------------------------------
+  # Zero-Shot Generalization
+  # ------------------------------------------------------------------------
+  zero_shot_objects:
+    name: "Zero-Shot Object Manipulation"
+    description: "Manipulate novel objects never seen during training"
+
+    test_objects:
+      - "novel_shapes"
+      - "novel_textures"
+      - "novel_sizes"
+      - "novel_weights"
+
+    evaluation:
+      num_episodes: 200
+      metrics:
+        - "zero_shot_success_rate"
+        - "generalization_gap"
+        - "adaptation_speed"
+
+  zero_shot_environments:
+    name: "Zero-Shot Environment Transfer"
+    description: "Navigate in novel environments"
+
+    test_environments:
+      - "unseen_layouts"
+      - "different_lighting"
+      - "different_textures"
+      - "outdoor_scenes"
+
+    evaluation:
+      num_episodes: 300
+
+  # ------------------------------------------------------------------------
+  # Few-Shot Learning
+  # ------------------------------------------------------------------------
+  few_shot_tasks:
+    name: "Few-Shot Task Learning"
+    description: "Learn new tasks from few demonstrations"
+
+    num_demonstrations: [1, 3, 5, 10]
+
+    test_tasks:
+      - "novel_pick_and_place_configurations"
+      - "new_tool_use"
+      - "unseen_object_categories"
+
+    evaluation:
+      num_episodes: 100
+      metrics:
+        - "few_shot_success_rate"
+        - "learning_efficiency"
+        - "sample_efficiency"
+
+# ========================================================================
+# 6. ROBUSTNESS TEST TASKS
+# ========================================================================
+robustness_tasks:
+  # Visual perturbations
+  visual_robustness:
+    occlusion_test:
+      occlusion_levels: [0.1, 0.2, 0.3, 0.4, 0.5]
+      base_task: "objectnav"
+
+    lighting_variation:
+      brightness_levels: [0.3, 0.5, 1.0, 1.5, 2.0]
+      base_task: "manipulation"
+
+    sensor_noise:
+      noise_levels: [0.01, 0.05, 0.1, 0.2]
+      noise_types: ["gaussian", "salt_pepper", "motion_blur"]
+
+  # Physical perturbations
+  physical_robustness:
+    object_mass_variation:
+      mass_multipliers: [0.5, 0.7, 1.0, 1.3, 1.5, 2.0]
+      base_task: "pick_and_place"
+
+    friction_variation:
+      friction_multipliers: [0.5, 0.7, 1.0, 1.3, 1.5]
+      base_task: "push_object"
+
+    dynamic_obstacles:
+      num_obstacles: [1, 3, 5, 10]
+      obstacle_speeds: [0.1, 0.3, 0.5, 1.0]
+      base_task: "navigation"
+
+# ========================================================================
+# Task Difficulty Classification
+# ========================================================================
+difficulty_levels:
+  easy:
+    - "pointnav"
+    - "pick_and_place"
+    - "push_object"
+
+  medium:
+    - "objectnav"
+    - "stack_blocks"
+    - "drawer_manipulation"
+    - "imagenav"
+
+  hard:
+    - "vln"
+    - "peg_insertion"
+    - "pour_liquid"
+    - "mobile_manipulation"
+    - "social_navigation"
+
+  very_hard:
+    - "multi_step_tasks"
+    - "goal_image_rearrangement"
+    - "calvin_style_tasks"
+    - "open_fridge_get_object"
+    - "prepare_meal"
+
+# ========================================================================
+# Task Success Criteria Templates
+# ========================================================================
+success_criteria_templates:
+  manipulation:
+    spatial_threshold: 0.05  # meters
+    orientation_threshold: 0.2  # radians
+    stability_time: 30  # frames
+    force_limits: [0.0, 50.0]  # Newtons
+
+  navigation:
+    distance_threshold: 0.2  # meters
+    view_angle_threshold: 15  # degrees
+    collision_tolerance: 0.1  # collision rate
+
+  composite:
+    all_subtasks_complete: true
+    partial_credit: true
+    time_bonus: true

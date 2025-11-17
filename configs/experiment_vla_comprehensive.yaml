@@ -1,0 +1,749 @@
+# Comprehensive VLA Experiment Configuration
+# Based on ICLR 2025, ICML 2024, and latest VLA research standards
+# Designed for top-tier conference paper submission
+
+# ========================================================================
+# EXPERIMENT METADATA
+# ========================================================================
+experiment:
+  name: "VLA-GR Comprehensive Benchmark"
+  version: "2.0"
+  date: "2025-01-17"
+  description: "Comprehensive VLA-GR evaluation on standard benchmarks"
+
+  # Conference target
+  target_conference: "ICLR 2026"  # or CVPR 2026, ICML 2025, CoRL 2025
+
+  # Experiment tracking
+  tracking:
+    wandb:
+      enabled: true
+      project: "vla-gr-comprehensive"
+      entity: null
+      tags: ["vla", "gr", "navigation", "manipulation", "benchmark"]
+
+    tensorboard:
+      enabled: true
+      log_dir: "logs/comprehensive_experiments"
+
+  # Output directories
+  results_dir: "results/comprehensive_benchmark"
+  checkpoint_dir: "checkpoints/comprehensive"
+  visualization_dir: "visualizations/comprehensive"
+
+# ========================================================================
+# IMPORT CONFIGURATIONS
+# ========================================================================
+imports:
+  - "datasets_vla_benchmark.yaml"
+  - "tasks_vla_extended.yaml"
+  - "metrics_vla_standard.yaml"
+
+# ========================================================================
+# EXPERIMENTAL PROTOCOL
+# ========================================================================
+protocol:
+  # Random seeds for reproducibility
+  seeds: [42, 123, 456, 789, 1024]
+
+  # Evaluation episodes per task
+  num_episodes:
+    quick_test: 50  # For debugging
+    standard: 500  # Standard evaluation
+    comprehensive: 1000  # Full benchmark
+    long_horizon: 200  # For complex multi-step tasks
+
+  # Train/val/test splits
+  splits:
+    train: 0.8
+    val: 0.1
+    test: 0.1
+
+  # Cross-validation
+  cross_validation:
+    enabled: true
+    num_folds: 5
+
+# ========================================================================
+# MAIN EXPERIMENTS
+# ========================================================================
+experiments:
+  # ------------------------------------------------------------------------
+  # Experiment 1: Standard Benchmarks
+  # ------------------------------------------------------------------------
+  standard_benchmarks:
+    name: "Standard VLA Benchmarks"
+    enabled: true
+
+    datasets:
+      # Manipulation datasets
+      manipulation:
+        - name: "open_x_embodiment"
+          num_episodes: 500
+          tasks: ["pick_and_place", "push", "drawer_open", "button_press"]
+
+        - name: "bridge_data"
+          num_episodes: 300
+          tasks: ["pick_object", "place_object", "stack_blocks"]
+
+        - name: "libero"
+          num_episodes: 200
+          task_suites: ["libero_spatial", "libero_object", "libero_goal"]
+
+      # Navigation datasets
+      navigation:
+        - name: "hm3d"
+          num_episodes: 1000
+          tasks: ["objectnav", "pointnav", "imagenav"]
+
+        - name: "mp3d"
+          num_episodes: 500
+          tasks: ["objectnav", "pointnav"]
+
+      # Long-horizon datasets
+      long_horizon:
+        - name: "calvin"
+          num_episodes: 1000
+          evaluate_sequences: true
+
+    metrics:
+      - "success_rate"
+      - "completion_rate"
+      - "mse"
+      - "amse"
+      - "namse"
+      - "spl"
+      - "task_completion_time"
+
+    baselines:
+      - "random_agent"
+      - "oracle"
+      - "dd_ppo"
+      - "openvla"
+      - "gpt4o"
+
+  # ------------------------------------------------------------------------
+  # Experiment 2: Ablation Studies
+  # ------------------------------------------------------------------------
+  ablation_studies:
+    name: "Comprehensive Ablation Studies"
+    enabled: true
+
+    num_episodes: 300  # Per ablation
+
+    ablations:
+      # Architecture ablations
+      architecture:
+        - name: "full_model"
+          description: "Full VLA-GR model"
+          config: {}
+
+        - name: "no_gr_field"
+          description: "Remove GR field computation"
+          config:
+            model:
+              gr_field:
+                enabled: false
+
+        - name: "no_depth_completion"
+          description: "Remove depth completion module"
+          config:
+            model:
+              occlusion:
+                completion_model: null
+
+        - name: "no_field_injection"
+          description: "Remove field-injected attention"
+          config:
+            model:
+              vla:
+                field_injection: false
+
+        - name: "no_language"
+          description: "Remove language encoder"
+          config:
+            model:
+              language:
+                enabled: false
+
+        - name: "no_bayesian_update"
+          description: "Remove Bayesian affordance updates"
+          config:
+            model:
+              affordance:
+                use_bayesian_update: false
+
+        - name: "no_geodesic_planning"
+          description: "Use standard planning instead of geodesic"
+          config:
+            model:
+              path:
+                use_geodesic: false
+
+      # Vision backbone ablations
+      vision_backbone:
+        - name: "dinov2_vitb14"
+          description: "DINOv2 ViT-B/14 (default)"
+
+        - name: "dinov2_vitl14"
+          description: "DINOv2 ViT-L/14 (larger)"
+
+        - name: "clip_vitb32"
+          description: "CLIP ViT-B/32"
+
+        - name: "resnet50"
+          description: "ResNet-50"
+
+      # Language model ablations
+      language_model:
+        - name: "phi2"
+          description: "Phi-2 2.7B (default)"
+
+        - name: "llama2_7b"
+          description: "Llama 2 7B"
+
+        - name: "t5_base"
+          description: "T5-Base"
+
+      # Loss function ablations
+      loss_functions:
+        - name: "all_losses"
+          description: "All loss terms"
+
+        - name: "no_geodesic_loss"
+          description: "Remove geodesic loss"
+          config:
+            training:
+              losses:
+                geodesic: 0.0
+
+        - name: "no_physics_loss"
+          description: "Remove physics constraints loss"
+          config:
+            training:
+              losses:
+                physics: 0.0
+
+        - name: "no_entropy_loss"
+          description: "Remove entropy regularization"
+          config:
+            training:
+              losses:
+                entropy: 0.0
+
+    analysis:
+      - "performance_drop_analysis"
+      - "component_importance_ranking"
+      - "interaction_effects"
+      - "statistical_significance_testing"
+
+  # ------------------------------------------------------------------------
+  # Experiment 3: Zero-Shot Generalization
+  # ------------------------------------------------------------------------
+  zero_shot_generalization:
+    name: "Zero-Shot Generalization"
+    enabled: true
+
+    # Train on one dataset, test on another
+    transfer_pairs:
+      navigation:
+        - train: "hm3d"
+          test: "mp3d"
+          num_episodes: 500
+
+        - train: "hm3d"
+          test: "gibson"
+          num_episodes: 500
+
+      manipulation:
+        - train: "bridge_data"
+          test: "libero"
+          num_episodes: 200
+
+        - train: "open_x_embodiment"
+          test: "bridge_data"
+          num_episodes: 300
+
+    # Test on novel objects/environments
+    novel_conditions:
+      novel_objects:
+        num_test_categories: 20
+        num_episodes_per_category: 50
+
+      novel_environments:
+        num_test_scenes: 50
+        num_episodes_per_scene: 20
+
+      novel_tasks:
+        num_test_tasks: 30
+        num_episodes_per_task: 50
+
+    metrics:
+      - "zero_shot_success_rate"
+      - "generalization_gap"
+      - "transfer_efficiency"
+
+  # ------------------------------------------------------------------------
+  # Experiment 4: Few-Shot Learning
+  # ------------------------------------------------------------------------
+  few_shot_learning:
+    name: "Few-Shot Task Learning"
+    enabled: true
+
+    num_demonstrations: [1, 3, 5, 10, 20]
+
+    test_tasks:
+      - "novel_pick_and_place"
+      - "novel_navigation_goals"
+      - "novel_tool_use"
+
+    num_test_episodes: 100
+
+    metrics:
+      - "few_shot_success_rate"
+      - "learning_efficiency"
+      - "sample_efficiency"
+      - "adaptation_speed"
+
+  # ------------------------------------------------------------------------
+  # Experiment 5: Long-Horizon Tasks
+  # ------------------------------------------------------------------------
+  long_horizon_evaluation:
+    name: "Long-Horizon Task Evaluation"
+    enabled: true
+
+    # CALVIN-style evaluation
+    calvin_protocol:
+      enabled: true
+      num_episodes: 1000
+      max_sequence_length: 5
+
+      report_metrics:
+        - "avg_sequence_length"
+        - "success_rate_1_task"
+        - "success_rate_2_tasks"
+        - "success_rate_3_tasks"
+        - "success_rate_4_tasks"
+        - "success_rate_5_tasks"
+
+    # Custom long-horizon tasks
+    custom_tasks:
+      - name: "prepare_meal"
+        num_episodes: 50
+        max_steps: 3000
+
+      - name: "tidy_room"
+        num_episodes: 50
+        max_steps: 2000
+
+      - name: "multi_object_navigation"
+        num_episodes: 300
+        sequence_length: [2, 3, 4, 5]
+
+    metrics:
+      - "task_chain_completion"
+      - "average_chain_progress"
+      - "bottleneck_identification"
+
+  # ------------------------------------------------------------------------
+  # Experiment 6: Robustness Testing
+  # ------------------------------------------------------------------------
+  robustness_testing:
+    name: "Robustness and Safety Testing"
+    enabled: true
+
+    # Visual perturbations
+    visual_perturbations:
+      occlusion:
+        enabled: true
+        occlusion_levels: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+        num_episodes_per_level: 200
+
+      lighting:
+        enabled: true
+        brightness_levels: [0.3, 0.5, 0.7, 1.0, 1.3, 1.5, 2.0]
+        num_episodes_per_level: 100
+
+      noise:
+        enabled: true
+        noise_types: ["gaussian", "salt_pepper", "motion_blur"]
+        noise_levels: [0.0, 0.01, 0.05, 0.1, 0.2]
+        num_episodes_per_level: 100
+
+    # Physical perturbations
+    physical_perturbations:
+      object_properties:
+        enabled: true
+        mass_variations: [0.5, 0.7, 1.0, 1.3, 1.5, 2.0]
+        friction_variations: [0.5, 0.7, 1.0, 1.3, 1.5]
+        num_episodes_per_variation: 100
+
+      dynamic_obstacles:
+        enabled: true
+        num_obstacles: [0, 1, 3, 5, 10]
+        obstacle_speeds: [0.1, 0.3, 0.5, 1.0]
+        num_episodes: 300
+
+    # Sensor perturbations
+    sensor_perturbations:
+      depth_noise:
+        enabled: true
+        noise_levels: [0.0, 0.01, 0.05, 0.1]
+        num_episodes_per_level: 100
+
+      missing_frames:
+        enabled: true
+        dropout_rates: [0.0, 0.05, 0.1, 0.2]
+        num_episodes_per_rate: 100
+
+    metrics:
+      - "robustness_score"
+      - "critical_failure_threshold"
+      - "graceful_degradation_curve"
+      - "safety_violation_rate"
+
+  # ------------------------------------------------------------------------
+  # Experiment 7: Computational Efficiency
+  # ------------------------------------------------------------------------
+  efficiency_analysis:
+    name: "Computational Efficiency Analysis"
+    enabled: true
+
+    metrics:
+      - "inference_time"
+      - "throughput"
+      - "memory_usage"
+      - "flops"
+
+    hardware_configs:
+      - "rtx_4060"
+      - "rtx_4090"
+      - "a100"
+      - "h100"
+
+    batch_sizes: [1, 4, 8, 16, 32]
+
+    optimizations:
+      - name: "baseline"
+        description: "No optimization"
+
+      - name: "fp16"
+        description: "Half precision"
+
+      - name: "int8"
+        description: "8-bit quantization"
+
+      - name: "tensorrt"
+        description: "TensorRT optimization"
+
+  # ------------------------------------------------------------------------
+  # Experiment 8: Qualitative Analysis
+  # ------------------------------------------------------------------------
+  qualitative_analysis:
+    name: "Qualitative Analysis and Visualization"
+    enabled: true
+
+    num_episodes: 100
+
+    visualizations:
+      - "attention_maps"
+      - "gr_field_visualization"
+      - "trajectory_comparison"
+      - "affordance_heatmaps"
+      - "failure_case_analysis"
+      - "success_case_analysis"
+
+    analysis_types:
+      - "failure_mode_taxonomy"
+      - "error_propagation_analysis"
+      - "decision_making_visualization"
+      - "multimodal_fusion_analysis"
+
+# ========================================================================
+# BASELINE COMPARISONS
+# ========================================================================
+baselines:
+  # Simple baselines
+  random_agent:
+    name: "Random Agent"
+    description: "Random action selection"
+    enabled: true
+
+  oracle:
+    name: "Oracle Agent"
+    description: "Shortest path oracle (upper bound)"
+    enabled: true
+
+  # Learning-based baselines
+  dd_ppo:
+    name: "DD-PPO"
+    description: "Decentralized Distributed PPO (ICLR 2020)"
+    enabled: true
+    checkpoint: "baselines/dd_ppo/model.pth"
+
+  # VLA baselines
+  openvla:
+    name: "OpenVLA"
+    description: "Open-source VLA model (7B params)"
+    enabled: true
+    checkpoint: "baselines/openvla/model.pth"
+
+  gpt4o:
+    name: "GPT-4o"
+    description: "GPT-4 with vision (API-based)"
+    enabled: false  # Requires API key
+    api_key: null
+
+  jat:
+    name: "JAT"
+    description: "Jack of All Trades model"
+    enabled: true
+    checkpoint: "baselines/jat/model.pth"
+
+  # Navigation baselines
+  clip_nav:
+    name: "CLIP-Nav"
+    description: "CLIP-based navigation"
+    enabled: true
+
+  neural_slam:
+    name: "Neural SLAM"
+    description: "Neural SLAM (ICLR 2021)"
+    enabled: true
+
+  # Manipulation baselines
+  bc_transformer:
+    name: "Behavior Cloning Transformer"
+    description: "Pure BC baseline"
+    enabled: true
+
+  diffusion_policy:
+    name: "Diffusion Policy"
+    description: "Diffusion-based policy"
+    enabled: true
+
+# ========================================================================
+# STATISTICAL ANALYSIS
+# ========================================================================
+statistical_analysis:
+  # Significance testing
+  significance_testing:
+    enabled: true
+    test_type: "t_test"  # or "wilcoxon", "mann_whitney"
+    significance_level: 0.05
+    multiple_comparison_correction: "bonferroni"
+
+  # Confidence intervals
+  confidence_intervals:
+    enabled: true
+    confidence_level: 0.95
+    bootstrap_samples: 1000
+
+  # Effect size
+  effect_size:
+    enabled: true
+    measure: "cohens_d"  # or "glass_delta", "hedges_g"
+
+  # Power analysis
+  power_analysis:
+    enabled: true
+    target_power: 0.8
+
+# ========================================================================
+# PAPER MATERIALS GENERATION
+# ========================================================================
+paper_materials:
+  # Tables
+  tables:
+    generate: true
+    format: "latex"
+
+    tables_to_generate:
+      - name: "main_results"
+        description: "Main results on all benchmarks"
+
+      - name: "ablation_studies"
+        description: "Ablation study results"
+
+      - name: "baseline_comparison"
+        description: "Comparison with baselines"
+
+      - name: "zero_shot_results"
+        description: "Zero-shot generalization results"
+
+      - name: "robustness_results"
+        description: "Robustness testing results"
+
+  # Figures
+  figures:
+    generate: true
+    format: "pdf"
+    dpi: 300
+
+    figures_to_generate:
+      - name: "main_results_bar_chart"
+        type: "bar_chart"
+
+      - name: "ablation_radar_chart"
+        type: "radar_chart"
+
+      - name: "learning_curves"
+        type: "line_plot"
+
+      - name: "robustness_curves"
+        type: "line_plot"
+
+      - name: "qualitative_examples"
+        type: "image_grid"
+
+      - name: "attention_visualization"
+        type: "heatmap"
+
+      - name: "gr_field_visualization"
+        type: "3d_plot"
+
+  # Supplementary materials
+  supplementary:
+    generate: true
+
+    include:
+      - "detailed_ablation_results"
+      - "per_task_breakdown"
+      - "failure_case_analysis"
+      - "hyperparameter_sensitivity"
+      - "additional_visualizations"
+      - "extended_baseline_comparisons"
+
+  # Videos
+  videos:
+    generate: true
+    format: "mp4"
+    fps: 30
+
+    videos_to_generate:
+      - "success_cases"
+      - "failure_cases"
+      - "gr_field_evolution"
+      - "comparison_with_baselines"
+
+# ========================================================================
+# HARDWARE CONFIGURATION
+# ========================================================================
+hardware:
+  # GPU settings
+  device: "cuda"
+  num_gpus: 4
+  gpu_ids: [0, 1, 2, 3]
+
+  # Distributed training
+  distributed:
+    enabled: true
+    backend: "nccl"
+    world_size: 4
+
+  # Memory management
+  memory:
+    gradient_checkpointing: true
+    empty_cache_every: 100
+    max_memory_per_gpu_gb: 24
+
+  # Parallel evaluation
+  parallel_evaluation:
+    enabled: true
+    num_workers: 4
+
+# ========================================================================
+# REPRODUCIBILITY
+# ========================================================================
+reproducibility:
+  # Random seeds
+  set_seed: true
+  seed: 42
+
+  # Deterministic operations
+  cudnn_deterministic: true
+  cudnn_benchmark: false
+
+  # Environment
+  environment_seed: 42
+
+  # Documentation
+  log_environment: true
+  log_git_commit: true
+  log_config: true
+
+# ========================================================================
+# DEBUGGING AND MONITORING
+# ========================================================================
+debugging:
+  # Debug mode
+  debug: false
+
+  # Verbose logging
+  verbose: true
+  log_level: "INFO"
+
+  # Profiling
+  profiling:
+    enabled: false
+    profiler: "pytorch"  # or "tensorboard"
+
+  # Checkpointing
+  save_frequent_checkpoints: true
+  checkpoint_every_n_episodes: 100
+
+# ========================================================================
+# EXECUTION CONFIGURATION
+# ========================================================================
+execution:
+  # Which experiments to run
+  run_experiments:
+    - "standard_benchmarks"
+    - "ablation_studies"
+    - "zero_shot_generalization"
+    - "few_shot_learning"
+    - "long_horizon_evaluation"
+    - "robustness_testing"
+    - "efficiency_analysis"
+    - "qualitative_analysis"
+
+  # Execution order
+  sequential: false  # Run in parallel if possible
+
+  # Failure handling
+  continue_on_failure: true
+  retry_on_failure: true
+  max_retries: 3
+
+  # Time limits
+  max_time_per_experiment: null  # No limit
+  max_total_time: null  # No limit
+
+# ========================================================================
+# OUTPUT CONFIGURATION
+# ========================================================================
+output:
+  # Results directory structure
+  structure:
+    - "results/experiments/"
+    - "results/ablations/"
+    - "results/baselines/"
+    - "results/analysis/"
+    - "results/visualizations/"
+    - "results/paper_materials/"
+
+  # File formats
+  save_formats:
+    - "json"
+    - "csv"
+    - "pickle"
+
+  # Compression
+  compress_results: true
+  compression_format: "gzip"
+
+  # Cloud backup
+  cloud_backup:
+    enabled: false
+    provider: null  # "s3", "gcs", "azure"
+    bucket: null
