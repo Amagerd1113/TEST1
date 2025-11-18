@@ -205,3 +205,37 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Slingshot-VLN Project Specific
+# =================================
+
+# Experiments and checkpoints
+experiments/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Dataset files
+data/
+datasets/
+
+# Logs
+logs/
+wandb/
+tensorboard/
+*.log
+
+# Assets and visualizations
+assets/demo_output/
+assets/*.png
+assets/*.gif
+assets/*.mp4
+
+# Model caches
+.cache/
+*.cache
+
+# Temporary files
+tmp/
+temp/
