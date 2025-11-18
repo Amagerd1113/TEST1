@@ -1,0 +1,173 @@
+# Gravitational Slingshot Navigation - Training Configuration for VLN-CE
+# Target: IROS 2026 submission with 82%+ SR on val_unseen
+
+defaults:
+  - _self_
+
+# Experiment metadata
+experiment:
+  name: "slingshot_vln_openvla7b"
+  project: "gravitational-slingshot-navigation"
+  entity: null  # Set your wandb entity
+  tags: ["iros2026", "openvla", "phantom-scalar", "vln-ce"]
+  notes: "Dual scalar field (φ+, φ-) with conformal metric for VLN navigation"
+
+# Model architecture
+model:
+  backbone: "openvla/openvla-7b"  # OpenVLA-7B from HuggingFace
+  freeze_vision_encoder: false
+  freeze_llm_layers: 0  # 0 = train all layers
+
+  # Scalar field solver configuration
+  scalar_solver:
+    type: "neural_poisson"
+    grid_size: [64, 64, 64]  # 3D spatial grid
+    fourier_features: 256
+    hidden_dims: [512, 512, 256, 128]
+    num_layers: 4
+    activation: "gelu"
+    use_positional_encoding: true
+    max_frequency: 10.0
+
+  # Conformal metric parameters
+  conformal:
+    lambda_repulsion: 2.0  # Repulsion strength (λ in g_ij = e^{2(φ+ - λφ-)})
+    learn_lambda: true  # Whether to learn λ during training
+    lambda_lr_multiplier: 0.1  # Slower learning for λ
+
+  # Geodesic integration
+  geodesic:
+    integration_method: "rk4"  # Runge-Kutta 4th order
+    num_steps: 50  # Integration steps for trajectory
+    step_size: 0.1  # Spatial step size (meters)
+    max_curvature: 100.0  # Clip extreme curvature values
+
+  # Metric injection into OpenVLA
+  metric_injection:
+    method: "cross_attention_prefix"  # Inject before cross-attention
+    num_metric_tokens: 8  # Number of metric tokens to inject
+    token_dim: 1024  # Must match OpenVLA hidden dim
+    include_scalar_curvature: true
+    include_phi_total: true
+    include_gradient_magnitude: true
+
+# Affordance & Distractor Extraction
+affordance:
+  model: "Qwen/Qwen2-VL-7B-Instruct"  # Best open-source VLM for dense prediction
+  prompt_template: |
+    Identify the target object "{target}" and all visually similar distractors.
+    Output a dense probability map where:
+    - Target regions = 1.0 (positive mass, attractive)
+    - Distractor regions = -1.0 (negative mass, repulsive)
+    - Other regions = 0.0
+  grid_resolution: 64  # Spatial resolution for density map
+  temperature: 0.7
+  use_depth_weighting: true  # Weight by inverse depth (closer = stronger)
+
+# Dataset configuration
+data:
+  dataset: "vln_ce"  # VLN-CE dataset
+  data_path: "data/datasets/vln_ce/v1"
+  scenes_dir: "data/scene_datasets/mp3d"
+
+  # Splits
+  train_split: "train"
+  val_split: "val_seen"
+  test_split: "val_unseen"
+
+  # Data loading
+  batch_size: 4  # Effective batch size per GPU
+  num_workers: 8
+  prefetch_factor: 2
+  pin_memory: true
+
+  # Episode filtering for distractor-heavy training
+  min_visual_similarity: 0.0  # 0.7 = only high-distractor episodes
+  min_episode_length: 10  # Minimum steps
+  max_episode_length: 500  # Maximum steps
+
+  # Augmentation
+  augmentation:
+    rgb_jitter: true
+    random_rotation: 0.1  # ±0.1 radians
+    depth_noise: 0.02  # 2% depth noise
+
+# Training hyperparameters
+training:
+  # Optimization
+  optimizer: "adamw"
+  learning_rate: 1.0e-5
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+
+  # Learning rate schedule
+  lr_scheduler: "cosine_with_warmup"
+  warmup_steps: 1000
+  max_steps: 100000
+  min_lr: 1.0e-7
+
+  # Gradient management
+  max_grad_norm: 1.0
+  gradient_accumulation_steps: 4  # Effective batch = 4 * 4 = 16
+
+  # Mixed precision
+  use_amp: true
+  amp_dtype: "bfloat16"  # Use bfloat16 for better stability
+
+  # Checkpointing
+  save_every: 5000  # Save checkpoint every N steps
+  eval_every: 2500  # Evaluate every N steps
+  keep_last_k: 5  # Keep only last K checkpoints
+  save_best: true  # Save best model based on val SR
+
+  # Loss weights
+  loss:
+    action_loss_weight: 1.0  # Main navigation loss
+    scalar_field_reg: 0.01  # Regularize φ to prevent divergence
+    geodesic_smoothness: 0.1  # Encourage smooth trajectories
+    distractor_separation: 0.5  # Penalize paths too close to distractors
+
+# Evaluation
+evaluation:
+  metrics: ["success_rate", "spl", "oracle_success", "ndtw", "path_length"]
+
+  # Distractor analysis
+  compute_distractor_metrics: true  # Compute metrics on high-distractor subset
+  distractor_similarity_threshold: 0.7  # Define "high distractor" episodes
+
+  # Visualization during eval
+  save_trajectories: true
+  save_metric_fields: true  # Save φ+, φ-, R visualizations
+  num_vis_episodes: 10
+
+# Hardware & Performance
+hardware:
+  device: "cuda"
+  num_gpus: 1
+  distributed_backend: "nccl"
+  find_unused_parameters: false
+
+  # Performance profiling
+  profile: false
+  profile_steps: [100, 110]  # Profile steps 100-110
+
+# Logging
+logging:
+  use_wandb: true
+  log_every: 50  # Log every N steps
+  log_gradients: false
+  log_model_every: 10000
+  watch_model: false  # Don't watch model (too expensive)
+
+# Reproducibility
+seed: 42
+deterministic: false  # Set true for reproducibility (slower)
+benchmark: true  # cudnn benchmark for speed
+
+# Debugging
+debug:
+  enabled: false
+  overfit_single_batch: false
+  fast_dev_run: false  # Run 1 train/val batch for testing
+  detect_anomaly: false  # Detect NaN/Inf (slow)

@@ -1,0 +1,172 @@
+# Gravitational Slingshot Navigation - Real Robot Inference Configuration
+# Target: Xiaomi/Roborock vacuum robots with ROS2 + Nav2
+
+defaults:
+  - _self_
+
+# Experiment metadata
+experiment:
+  name: "slingshot_real_robot"
+  device: "cuda"  # or "cpu" for edge devices
+  fp16: true  # Use FP16 for faster inference
+
+# Model checkpoint
+checkpoint:
+  path: "experiments/slingshot_vln_openvla7b/checkpoints/best_model.pt"
+  strict_load: true
+
+# Model configuration (must match training)
+model:
+  backbone: "openvla/openvla-7b"
+
+  scalar_solver:
+    type: "neural_poisson"
+    grid_size: [64, 64, 64]
+    fourier_features: 256
+    hidden_dims: [512, 512, 256, 128]
+    num_layers: 4
+
+  conformal:
+    lambda_repulsion: 2.0  # Will be loaded from checkpoint if learned
+
+  geodesic:
+    integration_method: "rk4"
+    num_steps: 50
+    step_size: 0.1
+
+  metric_injection:
+    method: "cross_attention_prefix"
+    num_metric_tokens: 8
+    token_dim: 1024
+
+# Affordance extraction (real-time)
+affordance:
+  model: "Qwen/Qwen2-VL-7B-Instruct"
+  grid_resolution: 64
+  temperature: 0.7
+  use_depth_weighting: true
+
+  # Real-time optimization
+  max_batch_size: 1
+  use_torch_compile: true  # Compile for 2x speedup
+
+# Robot hardware interface
+robot:
+  type: "vacuum_robot"  # xiaomi/roborock via ROS2
+  platform: "ros2"
+
+  # Camera configuration
+  camera:
+    rgb_topic: "/camera/color/image_raw"
+    depth_topic: "/camera/depth/image_raw"
+    camera_info_topic: "/camera/color/camera_info"
+    frame_rate: 10  # Hz
+    image_width: 640
+    image_height: 480
+
+  # Robot state
+  odom_topic: "/odom"
+  base_frame: "base_link"
+  camera_frame: "camera_link"
+
+  # Control
+  cmd_vel_topic: "/cmd_vel"
+  max_linear_vel: 0.3  # m/s (safe for indoor)
+  max_angular_vel: 0.5  # rad/s
+
+# Navigation settings
+navigation:
+  # Planning horizon
+  planning_horizon: 3.0  # meters
+  replanning_frequency: 2.0  # Hz
+
+  # Safety
+  obstacle_distance_threshold: 0.5  # meters
+  emergency_stop_distance: 0.3  # meters
+  collision_check: true
+
+  # Waypoint following
+  waypoint_tolerance: 0.2  # meters
+  angle_tolerance: 0.1  # radians
+  use_pure_pursuit: true  # Use pure pursuit for waypoint tracking
+
+# Perception
+perception:
+  # Depth processing
+  depth_min: 0.3  # meters
+  depth_max: 5.0  # meters
+  depth_scale: 0.001  # RealSense depth scale
+
+  # Mapping
+  map_resolution: 0.05  # meters per pixel
+  map_size: [10.0, 10.0]  # meters (local map)
+  update_frequency: 5.0  # Hz
+
+  # Object detection (for target & distractors)
+  detection_confidence: 0.6
+  nms_threshold: 0.5
+
+# Real-time performance
+performance:
+  # Target latency budget
+  max_inference_time: 0.018  # 18ms for 55Hz operation
+
+  # Optimization flags
+  use_jit: true
+  use_cudnn_benchmark: true
+  use_tf32: true  # Tensor cores
+
+  # Memory management
+  max_batch_size: 1
+  num_workers: 2
+  prefetch: true
+
+# Logging & Debugging
+logging:
+  log_to_file: true
+  log_dir: "experiments/real_robot_logs"
+  log_level: "INFO"
+
+  # Record data for analysis
+  record_trajectories: true
+  record_images: false  # Set true for debugging (large files)
+  record_metric_fields: true
+
+  # ROS2 logging
+  publish_visualization: true
+  viz_topic: "/slingshot_nav/visualization"
+
+# Safety & Recovery
+safety:
+  enable_watchdog: true
+  watchdog_timeout: 1.0  # seconds
+
+  # Recovery behaviors
+  max_recovery_attempts: 3
+  recovery_behaviors:
+    - rotate_recovery
+    - back_up_recovery
+    - wait_recovery
+
+# Task specification (for real deployment)
+task:
+  # Language instruction
+  instruction: "Go to the blue chair in the living room"
+
+  # Optional: Provide target image
+  target_image_path: null
+
+  # Timeout
+  max_episode_length: 500  # steps
+  max_episode_time: 300.0  # seconds
+
+# ROS2 specific
+ros2:
+  node_name: "slingshot_navigator"
+  namespace: ""
+  use_sim_time: false
+  qos_profile: "sensor_data"  # For camera topics
+
+  # Nav2 integration (optional)
+  use_nav2: false  # Set true to publish to Nav2 action server
+  nav2_action_name: "/navigate_to_pose"
