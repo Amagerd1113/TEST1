@@ -11,9 +11,9 @@ qwen-vl-utils>=0.0.8
 pillow>=10.0.0
 
 # Habitat Simulation & Navigation
-habitat-sim==0.3.0
-habitat-lab==0.3.1
-habitat-baselines==0.3.1
+habitat-sim==0.3.3
+habitat-lab==0.3.3
+habitat-baselines==0.3.3
 
 # Computer Vision & Depth Estimation
 depth-anything-v2 @ git+https://github.com/DepthAnything/Depth-Anything-V2.git
